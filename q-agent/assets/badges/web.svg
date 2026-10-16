@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="184" height="28" role="img" aria-label="WEB: HTML / CSS / JS">
+  <rect width="184" height="28" rx="0" fill="#17291f"/>
+  <path d="M5 0H44V28H5Q0 28 0 23V5Q0 0 5 0Z" fill="#e34f26"/>
+  <g font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" text-anchor="middle">
+    <text x="22.0" y="18" fill="#20100b">WEB</text>
+    <text x="114.0" y="18" fill="#e5eee6">HTML / CSS / JS</text>
+  </g>
+</svg>

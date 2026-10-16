@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="q-agent Q mark">
+  <path fill="#101d17" d="M0 0H64V64H0Z"/>
+  <path d="M22 9H42L55 22V42L42 55H22L9 42V22Z" fill="none" stroke="#b8f779" stroke-width="5"/>
+  <path d="M24 23H40V39H24Z" fill="#63d69a"/>
+  <path d="M34 34L59 59" stroke="#101d17" stroke-width="15"/>
+  <path d="M34 34L57 57" stroke="#b8f779" stroke-width="6"/>
+  <path d="M3 13V3H13M51 3H61V13" fill="none" stroke="#456650"/>
+</svg>

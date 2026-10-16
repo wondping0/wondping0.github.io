@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="180" viewBox="0 0 600 180" fill="none">
+  <g stroke="#294534" stroke-width="1">
+    <path d="M0 30H600M0 60H600M0 90H600M0 120H600M0 150H600M30 0V180M60 0V180M90 0V180M120 0V180M150 0V180M180 0V180M210 0V180M240 0V180M270 0V180M300 0V180M330 0V180M360 0V180M390 0V180M420 0V180M450 0V180M480 0V180M510 0V180M540 0V180M570 0V180" opacity=".25"/>
+    <path d="M0 12V0H12M588 0H600V12M0 168V180H12M588 180H600V168" stroke="#63d69a"/>
+  </g>
+  <g stroke="#63d69a"><path d="M135 90H245M355 90H405V40H466M405 90H466M405 90V140H466"/><path d="M300 26V10M300 154V170" stroke-dasharray="3 3"/></g>
+  <path d="M245 58L269 34H331L355 58V122L331 146H269L245 122Z" fill="#14251b" stroke="#b8f779"/>
+  <path d="M264 67L279 52H321L336 67V113L321 128H279L264 113Z" stroke="#304a3b"/>
+  <path d="M282 78H318V101H282ZM289 109H311M300 101V109" stroke="#b8f779" stroke-width="2"/>
+  <g fill="#101d17" stroke="#63d69a"><path d="M50 68H135V112H50Z"/><path d="M466 25H538V55H466ZM466 75H538V105H466ZM466 125H538V155H466Z"/></g>
+  <g fill="#b8f779"><rect x="185" y="87" width="6" height="6"/><rect x="436" y="37" width="6" height="6"/><rect x="436" y="87" width="6" height="6"/><rect x="436" y="137" width="6" height="6"/></g>
+  <g font-family="Consolas,monospace" font-size="11" fill="#a0b4a7" text-anchor="middle"><text x="92" y="94">qctl</text><text x="300" y="25">CONTROL PLANE</text><text x="502" y="45">LINUX</text><text x="502" y="95">WINDOWS</text><text x="502" y="145">LINUX</text><text x="92" y="134">OPERATOR</text><text x="300" y="171">SIGNED REQUESTS</text></g>
+</svg>

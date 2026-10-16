@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="136" height="28" role="img" aria-label="gRPC: PROTOBUF">
+  <rect width="136" height="28" rx="0" fill="#17291f"/>
+  <path d="M5 0H52V28H5Q0 28 0 23V5Q0 0 5 0Z" fill="#244d58"/>
+  <g font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" text-anchor="middle">
+    <text x="26.0" y="18" fill="#ffffff">gRPC</text>
+    <text x="94.0" y="18" fill="#e5eee6">PROTOBUF</text>
+  </g>
+</svg>
