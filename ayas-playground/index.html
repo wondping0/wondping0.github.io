@@ -1,0 +1,413 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#080f0d" />
+    <title>Aya's Playground — Sealed puzzles. Proven solves.</title>
+    <meta
+      name="description"
+      content="A cryptography CTF challenge marketplace. Solver-tested bundles, version-bound verification, and order-specific flags. Bring the challenge to your own playground."
+    />
+    <meta
+      property="og:title"
+      content="Aya's Playground — Sealed puzzles. Proven solves."
+    />
+    <meta
+      property="og:description"
+      content="Explore the cryptography challenge marketplace: discover, verify, and deploy on your own infrastructure."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://wondping0.github.io/ayas-playground/"
+    />
+    <link rel="canonical" href="https://wondping0.github.io/ayas-playground/" />
+    <link rel="icon" href="./assets/aya.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header>
+      <div class="wrap header-inner">
+        <a class="brand" href="./"
+          ><img src="./assets/aya.svg" width="36" height="36" alt="" />Aya's
+          Playground<span>.</span></a
+        >
+        <nav aria-label="Main navigation">
+          <a href="#platform">Platform</a><a href="#collection">Challenges</a
+          ><a href="#verification">Verification</a
+          ><a href="#start">For authors</a>
+        </nav>
+        <a class="header-link" href="#contact"
+          >Let's talk <span aria-hidden="true">↗</span></a
+        >
+      </div>
+    </header>
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div>
+          <p class="status">
+            <span aria-hidden="true"></span> CRYPTOGRAPHY / V1 IN DEVELOPMENT
+          </p>
+          <h1 id="hero-title">Sealed puzzles.<br /><em>Proven solves.</em></h1>
+          <p class="intro">
+            A great challenge deserves another playground. Discover cryptography
+            puzzles, inspect the verification, and bring a fresh flag to your
+            next CTF.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="#collection"
+              >Explore the challenges <span aria-hidden="true">↗</span></a
+            ><a class="text-link" href="#platform"
+              >How it works <span aria-hidden="true">→</span></a
+            >
+          </div>
+          <div class="hero-tags">
+            <span>SOLVER-TESTED</span><span>ORDER-SPECIFIC FLAGS</span
+            ><span>YOUR INFRASTRUCTURE</span>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div
+            class="signal-map"
+            aria-label="Author submits a bundle to Forge; buyer receives the prepared artifact"
+          >
+            <div><span>01 / INPUT</span><strong>AUTHOR</strong></div>
+            <b aria-hidden="true">→</b>
+            <div><span>02 / SANDBOX</span><strong>FORGE</strong></div>
+            <b aria-hidden="true">→</b>
+            <div><span>03 / ARTIFACT</span><strong>BUYER</strong></div>
+          </div>
+          <div class="console">
+            <div class="console-top">
+              <span class="dots" aria-hidden="true">● ● ●</span
+              ><span>forge / verification workspace</span>
+            </div>
+            <div
+              class="demo-controls"
+              hidden
+              role="group"
+              aria-label="Illustrative workflow stages"
+            >
+              <button type="button" data-stage="build" aria-pressed="false">
+                01 Build</button
+              ><button type="button" data-stage="verify" aria-pressed="true">
+                02 Verify</button
+              ><button type="button" data-stage="deliver" aria-pressed="false">
+                03 Deliver
+              </button>
+            </div>
+            <div class="console-body" aria-live="polite" aria-atomic="true">
+              <p id="demo-comment" class="comment">
+                # Illustrative verification, not a live run
+              </p>
+              <p id="demo-command" class="command">
+                &gt; verify shared-primes / version 01
+              </p>
+              <pre id="demo-output">
+[isolate] network disabled · non-root
+[build]   generate with an ephemeral flag
+[solve]   run the author's solver
+[compare] recovered flag matches
+[bind]    receipt → exact version hash</pre
+              >
+              <p id="demo-result" class="result">
+                PASS in this example · publish gate unlocked
+              </p>
+            </div>
+            <div class="console-footer">
+              <span>ILLUSTRATIVE SESSION</span><span>No code runs here</span>
+            </div>
+          </div>
+          <div class="boundary-note">
+            <strong>The receipt follows the version.</strong
+            ><span>Change the bundle, and verification must happen again.</span>
+          </div>
+          <p class="visual-caption">
+            THE SOLUTION STAYS SEALED. THE CHECK IS EXPLICIT.
+          </p>
+        </div>
+      </section>
+      <div class="principles wrap">
+        <div>
+          <span class="eyebrow">01 / DISCOVER</span
+          ><strong>Choose the shape of the puzzle.</strong>
+          <p>Scheme, difficulty, and a verification receipt.</p>
+        </div>
+        <div>
+          <span class="eyebrow">02 / PERSONALISE</span
+          ><strong>A flag prepared for your order.</strong>
+          <p>For re-flaggable bundles. Static bundles keep their fixed flag.</p>
+        </div>
+        <div>
+          <span class="eyebrow">03 / DEPLOY</span
+          ><strong>Your event. Your infrastructure.</strong>
+          <p>A licensed artifact, ready for your own setup.</p>
+        </div>
+      </div>
+      <section class="wrap section" id="platform">
+        <div class="section-heading">
+          <p class="eyebrow">THE PLATFORM / 01</p>
+          <div>
+            <h2>Three planes.<br />One deliberate pipeline.</h2>
+            <p>
+              From an author's upload to a buyer's download, every stage has a
+              job. The marketplace sells the artifact. Your CTF platform runs
+              the event.
+            </p>
+          </div>
+        </div>
+        <div class="architecture">
+          <article>
+            <span class="eyebrow">DISCOVERY</span>
+            <h3>Catalog</h3>
+            <p>
+              Challenge versions, listings, cryptography schemes, and
+              purchase-gated reviews.
+            </p>
+            <span class="tag">Exact versions</span>
+          </article>
+          <article class="highlight">
+            <span class="eyebrow">ISOLATED EXECUTION</span>
+            <h3>Forge</h3>
+            <p>
+              Build, verify, and fulfill through one sandbox. Seller code stays
+              outside the web process.
+            </p>
+            <span class="tag">One execution boundary</span>
+          </article>
+          <article>
+            <span class="eyebrow">PURCHASE & DELIVERY</span>
+            <h3>Commerce</h3>
+            <p>
+              Orders, verified payment webhooks, licences, escrow, and signed
+              downloads.
+            </p>
+            <span class="tag">Explicit state transitions</span>
+          </article>
+        </div>
+        <p class="pipeline">
+          SUBMIT <span>→</span> BUILD <span>→</span> VERIFY
+          <span>→</span> PUBLISH <span>→</span> ORDER <span>→</span> FULFILL
+          <span>→</span> DELIVER
+        </p>
+      </section>
+      <section class="collection" id="collection">
+        <div class="wrap section">
+          <div class="section-heading">
+            <p class="eyebrow">THE CHALLENGES / 02</p>
+            <div>
+              <h2>Small clues.<br />Beautiful consequences.</h2>
+              <p>
+                Two example bundles included in the project. These are
+                illustrative previews, not live listings or offers for sale.
+              </p>
+            </div>
+          </div>
+          <div class="challenge-row">
+            <span class="challenge-number">01</span>
+            <div class="challenge-art" aria-hidden="true">p × q</div>
+            <div>
+              <span class="eyebrow">RSA WEAKNESS</span>
+              <h3>Shared primes</h3>
+              <p>
+                Two moduli from the same careless generator. Recognise the
+                relationship that brings them both apart.
+              </p>
+            </div>
+            <span class="tag">Example bundle</span>
+          </div>
+          <div class="challenge-row">
+            <span class="challenge-number">02</span>
+            <div class="challenge-art" aria-hidden="true">A ⊕ B</div>
+            <div>
+              <span class="eyebrow">KEYSTREAM REUSE</span>
+              <h3>Many-time pad</h3>
+              <p>
+                One keystream, five messages, and a familiar pangram. Discover
+                why “one-time” is part of the name.
+              </p>
+            </div>
+            <span class="tag">Example bundle</span>
+          </div>
+        </div>
+      </section>
+      <section class="wrap section" id="verification">
+        <div class="section-heading">
+          <p class="eyebrow">THE TRUST BOUNDARY / 03</p>
+          <div>
+            <h2>A receipt.<br />Not a leap of faith.</h2>
+            <p>
+              Showing the handout can spoil the puzzle. Verification checks the
+              author's solver before the listing can be published. Re-flaggable
+              bundles use a throwaway flag; static bundles use their fixed flag.
+            </p>
+          </div>
+        </div>
+        <div class="verification-grid">
+          <div class="receipt">
+            <div class="console-top">
+              <span>VERIFICATION CONTRACT</span
+              ><span class="advisory">NOT A LIVE RECEIPT</span>
+            </div>
+            <dl>
+              <div>
+                <dt>Execution</dt>
+                <dd>Isolated container</dd>
+              </div>
+              <div>
+                <dt>Network</dt>
+                <dd>Disabled</dd>
+              </div>
+              <div>
+                <dt>Input</dt>
+                <dd>Read-only bundle</dd>
+              </div>
+              <div>
+                <dt>Flag</dt>
+                <dd>Ephemeral, except static mode</dd>
+              </div>
+              <div>
+                <dt>Binding</dt>
+                <dd>Exact version hash</dd>
+              </div>
+              <div>
+                <dt>Without Docker</dt>
+                <dd>Unverified · cannot publish</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="trust-copy">
+            <h3>Solvable in the checked run.</h3>
+            <p>
+              The solver must recover the test flag without receiving it as
+              input. A passing verdict is tied to the version that was tested.
+            </p>
+            <h3>Fresh flags, honest limits.</h3>
+            <p>
+              Re-flaggable bundles receive an order-specific flag; generate mode
+              reruns the generator. Static bundles retain the same fixed flag
+              for every buyer. Per-order flags support traceability, not copy
+              protection.
+            </p>
+            <p class="advisory">
+              Verification does not prove there are no unintended solutions, or
+              that every event configuration will work unchanged.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section class="author-section" id="start">
+        <div class="wrap section author">
+          <div>
+            <p class="eyebrow">FOR THE PUZZLE MAKERS / 04</p>
+            <h2>Your old CTF challenge.<br />Someone's next breakthrough.</h2>
+            <p>
+              Package the puzzle with a solver and a writeup. Keep the story,
+              the intended solve, and the player handout together in one
+              versioned bundle.
+            </p>
+            <a class="button primary" href="#contact"
+              >Discuss a challenge <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <div class="bundle">
+            <div class="console-top">
+              <span>CHALLENGE BUNDLE</span><span>CTFd-oriented format</span>
+            </div>
+            <pre>challenge.yml
+release_files/       <span># player handout</span>
+server_files/
+  generate.py        <span># reads the flag</span>
+solver/
+  solve.py           <span># recovers the flag</span>
+writeup.md           <span># explains the solve</span></pre>
+            <p>
+              Generate-mode example. Static and substitute modes are also part
+              of the bundle contract.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section class="wrap section faq">
+        <div>
+          <p class="eyebrow">BEFORE YOU BEGIN / 05</p>
+          <h2>A few things<br />to know.</h2>
+        </div>
+        <div>
+          <details>
+            <summary>
+              Can I purchase a challenge here?<span aria-hidden="true">+</span>
+            </summary>
+            <p>
+              This is the public project introduction. The marketplace is in
+              development; this page has no checkout, login, live listings, or
+              payment collection.
+            </p>
+          </details>
+          <details>
+            <summary>
+              Does it host my CTF?<span aria-hidden="true">+</span>
+            </summary>
+            <p>
+              No. Buyers receive an artifact to deploy on their own
+              infrastructure. Event hosting, live instances, and scoreboards
+              belong to your CTF platform.
+            </p>
+          </details>
+          <details>
+            <summary>
+              Can it run without Docker?<span aria-hidden="true">+</span>
+            </summary>
+            <p>
+              The application can boot with an in-memory store and a stub runner
+              for UI development. The stub can never pass verification. Real
+              verification and fulfillment require the Docker runner.
+            </p>
+          </details>
+          <details>
+            <summary>
+              What is included in v1?<span aria-hidden="true">+</span>
+            </summary>
+            <p>
+              Cryptography challenges, version-bound verification,
+              order-specific flags, and licensed delivery. Payouts are released
+              manually. Other challenge categories and hosted events are outside
+              v1.
+            </p>
+          </details>
+        </div>
+      </section>
+      <section class="wrap section contact" id="contact">
+        <div>
+          <p class="eyebrow">BUILD SOMETHING WORTH SOLVING</p>
+          <h2>Curiosity needs<br />a playground.</h2>
+          <p>
+            Have a challenge, an event, or an idea for the project? Get in touch
+            with the maintainer.
+          </p>
+        </div>
+        <div>
+          <a class="contact-link" href="mailto:wondev.support@gmail.com"
+            >wondev.support@gmail.com <span aria-hidden="true">↗</span></a
+          >
+          <p>No signup form. No trackers. Just a conversation.</p>
+          <a class="text-link" href="https://wondping0.github.io/"
+            >More from the maintainer <span aria-hidden="true">→</span></a
+          >
+        </div>
+      </section>
+    </main>
+    <footer class="wrap">
+      <a class="brand" href="./"
+        ><img src="./assets/aya.svg" alt="" width="28" height="28" />Aya's
+        Playground<span>.</span></a
+      >
+      <p>Cryptography first. Curiosity always.</p>
+      <a href="#main">Back to top ↑</a>
+    </footer>
+  </body>
+</html>
