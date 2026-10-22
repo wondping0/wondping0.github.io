@@ -1,0 +1,15 @@
+{
+  "name": "wondping0-writeups-build",
+  "private": true,
+  "type": "module",
+  "description": "Renders writeups/src/*.md into static pages under writeups/.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.22",
+    "marked": "^15.0.12",
+    "marked-katex-extension": "^5.1.4"
+  }
+}
