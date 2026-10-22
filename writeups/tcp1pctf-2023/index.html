@@ -1,0 +1,1120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050b18" />
+    <title>TCP1P CTF 2023 — wondping0 writeup</title>
+    <meta name="description" content="RSA leaks via gcd, meet-in-the-middle on double AES, Mersenne Twister prediction, LFSR mask recovery, a CBC padding oracle and small-e RSA behind an ECC captcha." />
+    <meta property="og:title" content="TCP1P CTF 2023 — wondping0 writeup" />
+    <meta property="og:description" content="RSA leaks via gcd, meet-in-the-middle on double AES, Mersenne Twister prediction, LFSR mask recovery, a CBC padding oracle and small-e RSA behind an ECC captcha." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wondping0.github.io/writeups/tcp1pctf-2023/" />
+    <meta property="og:image" content="https://wondping0.github.io/assets/avatar.jpg" />
+    <link rel="canonical" href="https://wondping0.github.io/writeups/tcp1pctf-2023/" />
+    <link rel="icon" href="/assets/favicon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/writeups/writeups.css" />
+    <script src="/writeups/writeups.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="backdrop" aria-hidden="true"></div>
+    <header class="header">
+      <div class="wrap header-inner">
+        <a class="brand" href="/" aria-label="wondping0 home">
+          <img src="/assets/avatar.webp" width="40" height="40" alt="" />
+          <span>wondping0<span class="brand-dot">_</span></span>
+        </a>
+        <nav class="nav" aria-label="Main navigation">
+          <a href="/#projects">Projects</a>
+          <a href="/#research">Research</a>
+          <a href="/writeups/" aria-current="page">Writeups</a>
+          <a href="/#contact">Contact</a>
+        </nav>
+        <a class="header-source" href="https://hackmd.io/@wondPing">HackMD <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="main" class="wrap writeup">
+      <div class="writeup-head">
+        <a class="back" href="/writeups/"><span aria-hidden="true">←</span> All writeups</a>
+        <p class="kicker">TCP1P CTF 2023 <span class="sep">/</span> 16 Oct 2023</p>
+        <h1>TCP1P CTF 2023</h1>
+        <p class="section-sub">RSA leaks via gcd, meet-in-the-middle on double AES, Mersenne Twister prediction, LFSR mask recovery, a CBC padding oracle and small-e RSA behind an ECC captcha.</p>
+        <div class="tags"><span>crypto</span><span>rsa</span><span>aes</span><span>prng</span><span>lfsr</span><span>7 challenges</span></div>
+        <a class="project-link" href="https://hackmd.io/@wondPing/rkV5nQ5b6">Original on HackMD <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="writeup-grid">
+        <nav class="toc" aria-label="On this page">
+          <p class="toc-title">ON THIS PAGE</p>
+          <ol>
+            <li class="toc-2"><a href="#crypto">Crypto</a></li>
+            <li class="toc-3"><a href="#cherry-leak">Cherry Leak</a></li>
+            <li class="toc-3"><a href="#final-consensus">Final Consensus</a></li>
+            <li class="toc-3"><a href="#one-pad-time">One Pad Time</a></li>
+            <li class="toc-3"><a href="#spider-shambles">Spider Shambles</a></li>
+            <li class="toc-3"><a href="#shiftgner">Shiftgner</a></li>
+            <li class="toc-3"><a href="#open-the-noor">Open the Noor</a></li>
+            <li class="toc-3"><a href="#eclairs">Eclairs</a></li>
+          </ol>
+        </nav>
+        <article class="prose">
+<h2 id="crypto"><a class="anchor" href="#crypto" aria-hidden="true">#</a>Crypto</h2>
+<h3 id="cherry-leak"><a class="anchor" href="#cherry-leak" aria-hidden="true">#</a>Cherry Leak</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># cherry.py</span>
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> getPrime, bytes_to_long
+
+p = getPrime(<span class="hljs-number">1024</span>)
+q = getPrime(<span class="hljs-number">512</span>)
+n = p * q
+e = <span class="hljs-number">65537</span>
+
+FLAG = <span class="hljs-string">b&quot;TCP1P{???????????????????????????????????????}&quot;</span>
+
+lock = <span class="hljs-literal">False</span>
+<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;1. Get new prime&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;2. Get leak&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;3. Get flag&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;4. Exit&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;&gt; &quot;</span>, end=<span class="hljs-string">&quot;&quot;</span>)
+    <span class="hljs-keyword">try</span>:
+        choice = <span class="hljs-built_in">int</span>(<span class="hljs-built_in">input</span>())
+    <span class="hljs-keyword">except</span>:
+        <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">if</span> choice == <span class="hljs-number">1</span>:
+        <span class="hljs-keyword">if</span> lock:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;You can&#x27;t do that anymore!&quot;</span>)
+            <span class="hljs-keyword">continue</span>
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;which prime? (p/q)&quot;</span>)
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;&gt; &quot;</span>, end=<span class="hljs-string">&quot;&quot;</span>)
+        prime = <span class="hljs-built_in">input</span>()
+        <span class="hljs-keyword">if</span> prime == <span class="hljs-string">&quot;p&quot;</span>:
+            p = getPrime(<span class="hljs-number">1024</span>)
+        <span class="hljs-keyword">elif</span> prime == <span class="hljs-string">&quot;q&quot;</span>:
+            q = getPrime(<span class="hljs-number">512</span>)
+        <span class="hljs-keyword">else</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;What?&quot;</span>)
+            <span class="hljs-keyword">continue</span>
+        n = p * q
+        lock = <span class="hljs-literal">True</span>
+    <span class="hljs-keyword">elif</span> choice == <span class="hljs-number">2</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;choose leak p ? q (+-*/%)&quot;</span>)
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;&gt; &quot;</span>, end=<span class="hljs-string">&quot;&quot;</span>)
+        leak = <span class="hljs-built_in">input</span>()
+        <span class="hljs-keyword">if</span> leak == <span class="hljs-string">&quot;+&quot;</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;p + q = <span class="hljs-subst">{<span class="hljs-built_in">pow</span>(p + q, e, n)}</span>&quot;</span>) <span class="hljs-comment"># nuh uh</span>
+        <span class="hljs-keyword">elif</span> leak == <span class="hljs-string">&quot;-&quot;</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;<span class="hljs-subst">{p - q = }</span>&quot;</span>)
+        <span class="hljs-keyword">elif</span> leak == <span class="hljs-string">&quot;*&quot;</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;p * q = <span class="hljs-subst">{<span class="hljs-built_in">pow</span>(p * q, e, n)}</span>&quot;</span>) <span class="hljs-comment"># nuh uh</span>
+        <span class="hljs-keyword">elif</span> leak == <span class="hljs-string">&quot;/&quot;</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;p // q = <span class="hljs-subst">{<span class="hljs-built_in">pow</span>(p // q, e, n)}</span>&quot;</span>) <span class="hljs-comment"># nuh uh</span>
+        <span class="hljs-keyword">elif</span> leak == <span class="hljs-string">&quot;%&quot;</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;<span class="hljs-subst">{p % q = }</span>&quot;</span>)
+        <span class="hljs-keyword">else</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;What?&quot;</span>)
+    <span class="hljs-keyword">elif</span> choice == <span class="hljs-number">3</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;c = <span class="hljs-subst">{<span class="hljs-built_in">pow</span>(bytes_to_long(FLAG), e, n)}</span>&quot;</span>)
+        lock = <span class="hljs-literal">True</span>
+    <span class="hljs-keyword">elif</span> choice == <span class="hljs-number">4</span>:
+        <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;What?&quot;</span>)</code></pre></figure>
+<p>Dari soal, kita bisa mendapatkan leak information dari <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>−</mo><mi>q</mi></mrow><annotation encoding="application/x-tex">p-q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> dan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>q</mi></mrow><annotation encoding="application/x-tex">p{\space}mod{\space}q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span>. Kemudian kita juga bisa mengganti nilai <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> sekali dan request <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mi>i</mi><mi>p</mi><mi>h</mi><mi>e</mi><mi>r</mi><mi>t</mi><mi>e</mi><mi>x</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">ciphertext</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">c</span><span class="mord mathnormal">i</span><span class="mord mathnormal">p</span><span class="mord mathnormal">h</span><span class="mord mathnormal" style="margin-right:0.0278em;">er</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal">x</span><span class="mord mathnormal">t</span></span></span></span>. Urutan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mi>h</mi><mi>o</mi><mi>i</mi><mi>c</mi><mi>e</mi></mrow><annotation encoding="application/x-tex">choice</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">c</span><span class="mord mathnormal">h</span><span class="mord mathnormal">o</span><span class="mord mathnormal">i</span><span class="mord mathnormal">ce</span></span></span></span> dan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>i</mi><mi>n</mi><mi>p</mi><mi>u</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">input</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.854em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">in</span><span class="mord mathnormal">p</span><span class="mord mathnormal">u</span><span class="mord mathnormal">t</span></span></span></span> yaitu: <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mo separator="true">,</mo><mo>−</mo><mo separator="true">,</mo><mn>2</mn><mo separator="true">,</mo><mi mathvariant="normal">%</mi><mo separator="true">,</mo><mn>1</mn><mo separator="true">,</mo><mi>p</mi><mo separator="true">,</mo><mn>2</mn><mo separator="true">,</mo><mo>−</mo><mo separator="true">,</mo><mn>2</mn><mo separator="true">,</mo><mi mathvariant="normal">%</mi><mo separator="true">,</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">2, - , 2 , \% , 1 , p , 2 , - , 2 , \% , 3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9444em;vertical-align:-0.1944em;"></span><span class="mord">2</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">−</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">2</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">%</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">p</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">2</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">−</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">2</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">%</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">3</span></span></span></span>. Kemudian untuk mendapatkan flag akan mencari nilai dari <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span>.</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>x</mi><mo>=</mo><mi>p</mi><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>q</mi></mrow><annotation encoding="application/x-tex">x=p{\space}mod{\space}q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>p</mi><mo>=</mo><mi>k</mi><mi>q</mi><mo>+</mo><mi>x</mi></mrow><annotation encoding="application/x-tex">p=kq+x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>y</mi><mo>=</mo><mi>p</mi><mo>−</mo><mi>q</mi></mrow><annotation encoding="application/x-tex">y=p-q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>y</mi><mo>=</mo><mi>k</mi><mi>q</mi><mo>+</mo><mi>x</mi><mo>−</mo><mi>q</mi></mrow><annotation encoding="application/x-tex">y=kq+x-q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6667em;vertical-align:-0.0833em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>y</mi><mo>−</mo><mi>x</mi><mo>=</mo><mo stretchy="false">(</mo><mi>k</mi><mi>i</mi><mo>−</mo><mn>1</mn><mo stretchy="false">)</mo><mi>q</mi></mrow><annotation encoding="application/x-tex">y-x=(ki-1)q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord mathnormal">i</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">1</span><span class="mclose">)</span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>k</mi><mi>i</mi><mo>−</mo><mn>1</mn><mo>=</mo><mi>I</mi><mi>n</mi><mi>t</mi><mi>e</mi><mi>g</mi><mi>e</mi><mi>r</mi></mrow><annotation encoding="application/x-tex">ki-1=Integer</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord mathnormal">i</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8778em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0785em;">I</span><span class="mord mathnormal">n</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mord mathnormal" style="margin-right:0.0278em;">er</span></span></span></span></span>
+<p>Untuk kasus <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> yang berbeda akan mendapatkan nilai dari <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">k1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">1</span></span></span></span> dan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">k2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">2</span></span></span></span> yang berbeda namun nilai <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> sama. Jadi kita lakukan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mi>c</mi><mi>d</mi></mrow><annotation encoding="application/x-tex">gcd</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mord mathnormal">c</span><span class="mord mathnormal">d</span></span></span></span> untuk mendapatkan nilai <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span>.</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>q</mi><mo>=</mo><mi>g</mi><mi>c</mi><mi>d</mi><mo stretchy="false">(</mo><mi>y</mi><mn>1</mn><mo>−</mo><mi>x</mi><mn>1</mn><mo separator="true">,</mo><mi>y</mi><mn>2</mn><mo>−</mo><mi>x</mi><mn>2</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">q = gcd(y1-x1,y2-x2)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mord mathnormal">c</span><span class="mord mathnormal">d</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="mord">1</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8389em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">x</span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="mord">2</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">x</span><span class="mord">2</span><span class="mclose">)</span></span></span></span></span>
+<p>Setelah mendapatkan nilai <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> bisa kita dapatkan flagnya.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> math
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+
+io = remote(<span class="hljs-string">&quot;ctf.tcp1p.com&quot;</span>,<span class="hljs-string">&quot;13339&quot;</span>)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">getLeak</span>():
+    io.recvuntil(<span class="hljs-string">b&#x27;&gt; &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;2&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&#x27;&gt; &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;-&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&quot;p - q = &quot;</span>)
+    pminq = <span class="hljs-built_in">int</span>(io.recvline().decode().strip())
+    
+    io.recvuntil(<span class="hljs-string">b&#x27;&gt; &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;2&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&#x27;&gt; &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;%&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&quot;p % q = &quot;</span>)
+    pmodq = <span class="hljs-built_in">int</span>(io.recvline().decode().strip())
+    <span class="hljs-keyword">return</span> pminq, pmodq
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    c1,m1 = getLeak()
+    e = <span class="hljs-number">65537</span>
+    io.recvuntil(<span class="hljs-string">b&quot;&gt; &quot;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;1&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&quot;&gt; &quot;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;p&#x27;</span>)
+    c2,m2 = getLeak()
+    <span class="hljs-comment"># print(c1,m2)</span>
+    q = math.gcd(c1-m1, c2-m2)
+    p = q+c2
+    
+    io.recvuntil(<span class="hljs-string">b&quot;&gt; &quot;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;3&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&quot;c = &quot;</span>)
+    cc = <span class="hljs-built_in">int</span>(io.recvline().decode().strip())
+    phi = (p-<span class="hljs-number">1</span>)*(q-<span class="hljs-number">1</span>)
+    d = <span class="hljs-built_in">pow</span>(e, -<span class="hljs-number">1</span>, phi)
+    flag = long_to_bytes(<span class="hljs-built_in">pow</span>(cc, d, p*q))
+    <span class="hljs-built_in">print</span>(flag)</code></pre></figure>
+<blockquote>
+<p>TCP1P{in_life&#39;s_abundance_a_fragment_suffices}</p>
+</blockquote>
+<hr>
+<h3 id="final-consensus"><a class="anchor" href="#final-consensus" aria-hidden="true">#</a>Final Consensus</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># chall.py</span>
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> pad
+
+a = <span class="hljs-string">b&quot;&quot;</span>
+b = <span class="hljs-string">b&quot;&quot;</span>
+FLAG = <span class="hljs-string">b&quot;TCP1P{REDACTED}&quot;</span>
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">generateKey</span>():
+	<span class="hljs-keyword">global</span> a, b
+	a = (<span class="hljs-built_in">str</span>(random.randint(<span class="hljs-number">0</span>, <span class="hljs-number">999999</span>)).zfill(<span class="hljs-number">6</span>)*<span class="hljs-number">4</span>)[:<span class="hljs-number">16</span>].encode()
+	b = (<span class="hljs-built_in">str</span>(random.randint(<span class="hljs-number">0</span>, <span class="hljs-number">999999</span>)).zfill(<span class="hljs-number">6</span>)*<span class="hljs-number">4</span>)[:<span class="hljs-number">16</span>].encode()
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">encrypt</span>(<span class="hljs-params">plaintext, a, b</span>):
+	cipher = AES.new(a, mode=AES.MODE_ECB)
+	ct = cipher.encrypt(pad(plaintext, <span class="hljs-number">16</span>))
+	cipher = AES.new(b, mode=AES.MODE_ECB)
+	ct = cipher.encrypt(ct)
+	<span class="hljs-keyword">return</span> ct.<span class="hljs-built_in">hex</span>()
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>():
+	generateKey()
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Alice: My message&quot;</span>, encrypt(FLAG, a, b))
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Alice: Now give me yours!&quot;</span>)
+	plain = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;&gt;&gt; &quot;</span>)
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Steve: &quot;</span>, encrypt(plain.encode(), a, b))
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Alice: Agree.&quot;</span>)
+
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&#x27;__main__&#x27;</span>:
+	main()</code></pre></figure>
+<p>Dalam soal ini digunakan skema enkripsi AES dua kali dengan kunci <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi></mrow><annotation encoding="application/x-tex">a</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">a</span></span></span></span> dan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi></mrow><annotation encoding="application/x-tex">b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">b</span></span></span></span>. Namun terdapat kelemahan pada generate kunci yaitu nilai <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi></mrow><annotation encoding="application/x-tex">a</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">a</span></span></span></span> dan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi></mrow><annotation encoding="application/x-tex">b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">b</span></span></span></span> cukup kecil yaitu urang dari 999999. Sehingga mudah dilakukan bruteforce. </p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>C</mi><mn>1</mn><mo>=</mo><mi>A</mi><mi>E</mi><mi>S</mi><mo stretchy="false">(</mo><mi>a</mi><mo separator="true">,</mo><mi>p</mi><mi>l</mi><mi>a</mi><mi>i</mi><mi>n</mi><mi>t</mi><mi>e</mi><mi>x</mi><mi>t</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">C1=AES(a, plaintext)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="mord">1</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">A</span><span class="mord mathnormal" style="margin-right:0.0576em;">E</span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0197em;">pl</span><span class="mord mathnormal">ain</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal">x</span><span class="mord mathnormal">t</span><span class="mclose">)</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>C</mi><mo>=</mo><mi>A</mi><mi>E</mi><mi>S</mi><mo stretchy="false">(</mo><mi>b</mi><mo separator="true">,</mo><mi>C</mi><mn>1</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">C=AES(b, C1)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">A</span><span class="mord mathnormal" style="margin-right:0.0576em;">E</span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mopen">(</span><span class="mord mathnormal">b</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="mord">1</span><span class="mclose">)</span></span></span></span></span>
+<p>Jika dilakukan bruteforce masing-masing kunci akan lama maka digunakan meet in the middle attack.</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>x</mi><mo>=</mo><mi>E</mi><mi>n</mi><mi>c</mi><mo stretchy="false">(</mo><mi>a</mi><mo separator="true">,</mo><mi>p</mi><mi>l</mi><mi>a</mi><mi>i</mi><mi>n</mi><mi>t</mi><mi>e</mi><mi>x</mi><mi>t</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">x=Enc(a,plaintext)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">E</span><span class="mord mathnormal">n</span><span class="mord mathnormal">c</span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0197em;">pl</span><span class="mord mathnormal">ain</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal">x</span><span class="mord mathnormal">t</span><span class="mclose">)</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>x</mi><mo>=</mo><mi>D</mi><mi>e</mi><mi>c</mi><mo stretchy="false">(</mo><mi>b</mi><mo separator="true">,</mo><mi>C</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">x=Dec(b,C)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span><span class="mord mathnormal">ec</span><span class="mopen">(</span><span class="mord mathnormal">b</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="mclose">)</span></span></span></span></span>
+<p>kunci ditemukan ketika nilai x sama.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> pad
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+
+io = remote(<span class="hljs-string">&quot;ctf.tcp1p.com&quot;</span>,<span class="hljs-string">&quot;35257&quot;</span>)
+
+dcts = <span class="hljs-built_in">set</span>()
+mems = {}
+
+plaintext = <span class="hljs-string">b&#x27;partai&#x27;</span>
+
+io.recvuntil(<span class="hljs-string">b&quot;Alice: My message &quot;</span>)
+flagcip = <span class="hljs-built_in">bytes</span>.fromhex(io.recvline().decode().strip())
+io.recvuntil(<span class="hljs-string">b&quot;&gt;&gt; &quot;</span>)
+io.sendline(plaintext)
+io.recvuntil(<span class="hljs-string">b&quot;Steve: &quot;</span>)
+cts = <span class="hljs-built_in">bytes</span>.fromhex(io.recvline().decode().strip())
+
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">999999</span>):
+    a = (<span class="hljs-built_in">str</span>(i).zfill(<span class="hljs-number">6</span>)*<span class="hljs-number">4</span>)[:<span class="hljs-number">16</span>].encode()
+    cipher = AES.new(a, mode=AES.MODE_ECB)
+    enc = cipher.encrypt(pad(plaintext, <span class="hljs-number">16</span>))
+    dcts.add(enc)
+    mems[enc] = i
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;ONes complete&quot;</span>)
+
+keya = -<span class="hljs-number">1</span>
+keyb = -<span class="hljs-number">1</span>
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">999999</span>):
+    a = (<span class="hljs-built_in">str</span>(i).zfill(<span class="hljs-number">6</span>)*<span class="hljs-number">4</span>)[:<span class="hljs-number">16</span>].encode()
+    cipher = AES.new(a, mode=AES.MODE_ECB)
+    dec = cipher.decrypt(cts)
+    <span class="hljs-keyword">if</span>(dec <span class="hljs-keyword">in</span> dcts):
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Founds!!&quot;</span>)
+        keya = mems[dec]
+        keyb = i
+        <span class="hljs-keyword">break</span>
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Done!!&quot;</span>)
+aa = (<span class="hljs-built_in">str</span>(keya).zfill(<span class="hljs-number">6</span>)*<span class="hljs-number">4</span>)[:<span class="hljs-number">16</span>].encode()
+bb = (<span class="hljs-built_in">str</span>(keyb).zfill(<span class="hljs-number">6</span>)*<span class="hljs-number">4</span>)[:<span class="hljs-number">16</span>].encode()
+cipher1 = AES.new(bb, mode=AES.MODE_ECB)
+ct = cipher.decrypt(flagcip)
+cipher2 = AES.new(aa, mode=AES.MODE_ECB)
+flag = cipher2.decrypt(ct)
+<span class="hljs-built_in">print</span>(flag)</code></pre></figure>
+<blockquote>
+<p>TCP1P{nothing_ever_lasts_forever_everybody_wants_to_rule_the_world}</p>
+</blockquote>
+<h3 id="one-pad-time"><a class="anchor" href="#one-pad-time" aria-hidden="true">#</a>One Pad Time</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> xor
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> pad, unpad
+
+key = os.urandom(<span class="hljs-number">16</span>)
+iv = os.urandom(<span class="hljs-number">16</span>)
+cipher = AES.new(key, AES.MODE_CBC, iv)
+
+pt = <span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;flag.txt&quot;</span>, <span class="hljs-string">&quot;rb&quot;</span>).read()
+ct = pad(cipher.encrypt(pt), <span class="hljs-number">16</span>)
+ct = xor(ct, key)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;<span class="hljs-subst">{iv = }</span>&quot;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;<span class="hljs-subst">{ct = }</span>&quot;</span>)</code></pre></figure>
+<p>Jika diperhatikan pada soal skema yang digunakan adalah menggunakan AES CBC kemudian dilakukan xor dengan kunci yang sama. Namun dilihat pada line:</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python">ct = pad(cipher.encrypt(pt), <span class="hljs-number">16</span>)
+ct = xor(ct, key)</code></pre></figure>
+<p>sebelum dilakukan xor untuk ciphertext ditambahkan padding, dari sini kita tahu untuk ciphertext sendiri sudah memiliki panjang 16 bytes karena output dari AES. Pada fungsi <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mi>a</mi><mi>d</mi></mrow><annotation encoding="application/x-tex">pad</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mord mathnormal">a</span><span class="mord mathnormal">d</span></span></span></span> jika panjang sudah 16 bytes padding yang dihasilkan adalah:</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python">padded = <span class="hljs-string">b&#x27;\x10&#x27;</span>*<span class="hljs-number">16</span></code></pre></figure>
+<p>karena panjang key juga 16 bytes maka kita bisa melakukan recover key dengan melakukan xor dari 16 byte terakhir dari ciphertext dengan padding.</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>k</mi><mi>e</mi><mi>y</mi><mo>=</mo><mi>x</mi><mi>o</mi><mi>r</mi><mo stretchy="false">(</mo><mi>p</mi><mi>a</mi><mi>d</mi><mi>d</mi><mi>e</mi><mi>d</mi><mo separator="true">,</mo><mi>c</mi><mi>i</mi><mi>p</mi><mi>h</mi><mi>e</mi><mi>r</mi><mi>t</mi><mi>e</mi><mi>x</mi><mi>t</mi><mo stretchy="false">[</mo><mo>:</mo><mn>16</mn><mo stretchy="false">]</mo><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">key=xor(padded, ciphertext[:16])</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord mathnormal" style="margin-right:0.0359em;">ey</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">x</span><span class="mord mathnormal" style="margin-right:0.0278em;">or</span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mord mathnormal">a</span><span class="mord mathnormal">dd</span><span class="mord mathnormal">e</span><span class="mord mathnormal">d</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">c</span><span class="mord mathnormal">i</span><span class="mord mathnormal">p</span><span class="mord mathnormal">h</span><span class="mord mathnormal" style="margin-right:0.0278em;">er</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal">x</span><span class="mord mathnormal">t</span><span class="mopen">[</span><span class="mrel">:</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">16</span><span class="mclose">])</span></span></span></span></span>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> xor
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> pad, unpad
+
+iv = <span class="hljs-string">b&#x27;\xf5\x8e\x85ye\xc8j(%\xc4K\xc1g#\x86\x1a&#x27;</span>
+ct = <span class="hljs-string">b&#x27;h\x08\xafmDV\xaa\xcd\xea\xe9C\xdd7/\x1fF\xe2?\xcb\xb0\x1d F\xcc\xe5\xa6\x9dTJ\\\xd1\x90\xac\xe0\x1c\x891}\x83*\x86\xee\xc4~\xa0\x18\xa8\x06\xea&quot;{|\x0b\x92[\x9a[\x91\xc8\x19\xb7FK\x01\xb5\xf98\x80\x9bR)2\x84`\xb3E\t\xd5\xe5\xf0[\x83\xc6\x19\x82\r\x7f\xfaGF\xdb\xcb\xab\xd5~\x95\t\xdd\xb5E&gt;F\xdd\xa9\xa6\x82\x86\xee&quot;\x99\xd9\xcc\xaf\xce\xf0\&#x27;\xb3\xf4~\xcf\xdb\xc8\xbd3\x01\xd0,}]\xd5V\xd3?\xb0\xe7\xb4[4\x8a\xa2[\xa1TV\xd16\x1f\xbd&quot;\xc8\xa2\\K\x16I%\xdaL\xc6\xfb\xb7f.\x98\xc3\xf4J\x1b\xe9TT\x83-\x98BO\xb4\x00~\xb5w\xcf7m\xa1\xea\xa9\xf6\xa6\xee\x00Y\xdfE\x9c7\xe3\xa3\xa2\x1f=.\x85\x08l\xacN\xfb2\x89\x8bB\x7f\x94\x91p\x10ep\x9b\x06oz\x87&amp;U]J\x019\x12W\xce&lt;\xc8\xa8\xb4v\xaf,\xb1n\x8b\xf5\xfe\xf8\r\xa7:r\xe8\xe0fvKN\\\xea\xe0\xa1\xe3\x99\xcc\xfd\x1a\x99Q\x90\xdf}\xae\xad&#x27;</span>
+
+last_pad = <span class="hljs-string">b&#x27;\x10&#x27;</span>*<span class="hljs-number">16</span>
+key = xor(ct[-<span class="hljs-number">16</span>:],last_pad)
+
+rt = unpad(xor(key, ct),<span class="hljs-number">16</span>)
+
+cipher = AES.new(key, AES.MODE_CBC, iv)
+flag = cipher.decrypt(rt)
+<span class="hljs-built_in">print</span>(flag)</code></pre></figure>
+<blockquote>
+<p>TCP1P{why_did_the_chicken_cross_the_road?To_ponder_the_meaning_of_life_on_the_other_side_only_to_realize_that_the_road_itself_was_an_arbitrary_construct_with_no_inherent_purpose_and_that_true_enlightenment_could_only_be_found_within_its_own_existence_1234}</p>
+</blockquote>
+<hr>
+<h3 id="spider-shambles"><a class="anchor" href="#spider-shambles" aria-hidden="true">#</a>Spider Shambles</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">from</span> flask <span class="hljs-keyword">import</span> Flask, flash, request, redirect, render_template, send_file
+<span class="hljs-keyword">import</span> io
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> long_to_bytes <span class="hljs-keyword">as</span> l2b
+
+app=Flask(__name__, template_folder=<span class="hljs-string">&#x27;./template&#x27;</span>)
+
+app.secret_key = <span class="hljs-string">&quot;OFCOURSETHISISNOTHEREALSECRETKEYBOI&quot;</span>
+app.config[<span class="hljs-string">&#x27;MAX_CONTENT_LENGTH&#x27;</span>] = <span class="hljs-number">16</span> * <span class="hljs-number">1024</span> * <span class="hljs-number">1024</span>
+
+
+ALLOWED_EXTENSIONS = <span class="hljs-built_in">set</span>([<span class="hljs-string">&#x27;txt&#x27;</span>, <span class="hljs-string">&#x27;pdf&#x27;</span>, <span class="hljs-string">&#x27;png&#x27;</span>, <span class="hljs-string">&#x27;jpg&#x27;</span>, <span class="hljs-string">&#x27;jpeg&#x27;</span>, <span class="hljs-string">&#x27;gif&#x27;</span>])
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">allowed_file</span>(<span class="hljs-params">filename</span>):
+    <span class="hljs-keyword">return</span> <span class="hljs-string">&#x27;.&#x27;</span> <span class="hljs-keyword">in</span> filename <span class="hljs-keyword">and</span> filename.rsplit(<span class="hljs-string">&#x27;.&#x27;</span>, <span class="hljs-number">1</span>)[<span class="hljs-number">1</span>].lower() <span class="hljs-keyword">in</span> ALLOWED_EXTENSIONS
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">xor</span>(<span class="hljs-params">a, b</span>):
+    <span class="hljs-keyword">return</span> <span class="hljs-string">b&#x27;&#x27;</span>.join([<span class="hljs-built_in">bytes</span>([_a ^ _b]) <span class="hljs-keyword">for</span> _a, _b <span class="hljs-keyword">in</span> <span class="hljs-built_in">zip</span>(a, b)])
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">encropt</span>(<span class="hljs-params">buff</span>):
+    rand = random.getrandbits(<span class="hljs-built_in">len</span>(buff)*<span class="hljs-number">8</span>)
+    <span class="hljs-keyword">return</span> xor(buff, l2b(rand))
+
+
+<span class="hljs-meta">@app.route(<span class="hljs-params"><span class="hljs-string">&#x27;/&#x27;</span>, methods=[<span class="hljs-string">&#x27;GET&#x27;</span>]</span>)</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">upload_form</span>():
+    <span class="hljs-keyword">return</span> render_template(<span class="hljs-string">&#x27;./upload.html&#x27;</span>)
+
+
+<span class="hljs-meta">@app.route(<span class="hljs-params"><span class="hljs-string">&#x27;/&#x27;</span>, methods=[<span class="hljs-string">&#x27;POST&#x27;</span>]</span>)</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">upload_file</span>():
+    <span class="hljs-keyword">if</span> request.method == <span class="hljs-string">&#x27;POST&#x27;</span>:
+        <span class="hljs-keyword">if</span> <span class="hljs-string">&#x27;file&#x27;</span> <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> request.files:
+            flash(<span class="hljs-string">&#x27;No file part&#x27;</span>)
+            <span class="hljs-keyword">return</span> redirect(request.url)
+        file = request.files[<span class="hljs-string">&#x27;file&#x27;</span>]
+        <span class="hljs-keyword">if</span> file.filename == <span class="hljs-string">&#x27;&#x27;</span>:
+            flash(<span class="hljs-string">&#x27;No file selected for uploading&#x27;</span>)
+            <span class="hljs-keyword">return</span> redirect(request.url)
+        <span class="hljs-keyword">if</span> file <span class="hljs-keyword">and</span> allowed_file(file.filename):
+            buff = io.BytesIO()
+            buff.write(encropt(file.read()))
+            buff.seek(<span class="hljs-number">0</span>)
+            <span class="hljs-keyword">return</span> send_file(
+                buff,
+                mimetype=<span class="hljs-string">&quot;text/plain&quot;</span>,
+                as_attachment=<span class="hljs-literal">True</span>,
+                download_name=<span class="hljs-string">&#x27;lalalalululu&#x27;</span>)
+        <span class="hljs-keyword">else</span>:
+            flash(<span class="hljs-string">&#x27;Allowed file types are txt, pdf, png, jpg, jpeg, gif&#x27;</span>)
+            <span class="hljs-keyword">return</span> redirect(request.url)
+
+<span class="hljs-meta">@app.route(<span class="hljs-params"><span class="hljs-string">&#x27;/flago&#x27;</span>, methods=[<span class="hljs-string">&#x27;GET&#x27;</span>]</span>)</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">send_flago</span>():
+    flago = <span class="hljs-built_in">open</span>(<span class="hljs-string">&#x27;sec.txt&#x27;</span>, <span class="hljs-string">&#x27;rb&#x27;</span>)
+    buff = io.BytesIO()
+    buff.write(encropt(flago.read()))
+    buff.seek(<span class="hljs-number">0</span>)
+    <span class="hljs-keyword">return</span> send_file(
+        buff,
+        mimetype=<span class="hljs-string">&quot;text/plain&quot;</span>,
+        as_attachment=<span class="hljs-literal">True</span>,
+        download_name=<span class="hljs-string">&#x27;babababububu&#x27;</span>)
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    app.run(host = <span class="hljs-string">&#x27;0.0.0.0&#x27;</span>,port = <span class="hljs-number">5000</span>, debug = <span class="hljs-literal">False</span>)</code></pre></figure>
+<p>Diberikan sebuah web server dengan python dan kita bisa melakukan enkripsi file didalamnya. Fungsi encrypt dalam soal yaitu:</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">encropt</span>(<span class="hljs-params">buff</span>):
+    rand = random.getrandbits(<span class="hljs-built_in">len</span>(buff)*<span class="hljs-number">8</span>)
+    <span class="hljs-keyword">return</span> xor(buff, l2b(rand))</code></pre></figure>
+<p>Fungsi tersebut hanya melakukan xor dengan random number yang digenerate pada module random python. Module random pada python menggunakan pseudorandom Mersenne Twister. Algoritma ini bisa di predict setelah didapatkan 624 * 32 bit output.
+Saya menggunakan randcracker untuk melakukan predict dari link <a href="https://github.com/tna0y/Python-random-module-cracker">https://github.com/tna0y/Python-random-module-cracker</a>
+Jadi pendekatan yang dilakukan adalah:</p>
+<ol>
+<li>Input file sebanyak (624 * 32)/8 bytes</li>
+<li>Mendapatkan random/output Mersenne dari <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mi>o</mi><mi>r</mi><mo stretchy="false">(</mo><mi>i</mi><mi>n</mi><mi>p</mi><mi>u</mi><mi>t</mi><mi>F</mi><mi>i</mi><mi>l</mi><mi>e</mi><mo separator="true">,</mo><mi>o</mi><mi>u</mi><mi>t</mi><mi>p</mi><mi>u</mi><mi>t</mi><mi>F</mi><mi>i</mi><mi>l</mi><mi>e</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">xor(inputFile, outputFile)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">x</span><span class="mord mathnormal" style="margin-right:0.0278em;">or</span><span class="mopen">(</span><span class="mord mathnormal">in</span><span class="mord mathnormal">p</span><span class="mord mathnormal">u</span><span class="mord mathnormal" style="margin-right:0.1389em;">tF</span><span class="mord mathnormal">i</span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">e</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">o</span><span class="mord mathnormal">u</span><span class="mord mathnormal">tp</span><span class="mord mathnormal">u</span><span class="mord mathnormal" style="margin-right:0.1389em;">tF</span><span class="mord mathnormal">i</span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">e</span><span class="mclose">)</span></span></span></span></li>
+<li>Memasukkan hasil xor pada randcracker dan melakukan predict sebanyak: <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>l</mi><mi>e</mi><mi>n</mi><mo stretchy="false">(</mo><mi>f</mi><mi>l</mi><mi>a</mi><mi>g</mi><mo stretchy="false">)</mo><mo>∗</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">len(flag) * 8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">e</span><span class="mord mathnormal">n</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">a</span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∗</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">8</span></span></span></span>.</li>
+<li>Flag = <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mi>o</mi><mi>r</mi><mo stretchy="false">(</mo><mi>p</mi><mi>r</mi><mi>e</mi><mi>d</mi><mi>i</mi><mi>c</mi><mi>t</mi><mo separator="true">,</mo><mi>F</mi><mi>l</mi><mi>a</mi><mi>g</mi><mi>c</mi><mi>i</mi><mi>p</mi><mi>h</mi><mi>e</mi><mi>r</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">xor(predict, Flagcipher)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">x</span><span class="mord mathnormal" style="margin-right:0.0278em;">or</span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord mathnormal">e</span><span class="mord mathnormal">d</span><span class="mord mathnormal">i</span><span class="mord mathnormal">c</span><span class="mord mathnormal">t</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">F</span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">a</span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mord mathnormal">c</span><span class="mord mathnormal">i</span><span class="mord mathnormal">p</span><span class="mord mathnormal">h</span><span class="mord mathnormal" style="margin-right:0.0278em;">er</span><span class="mclose">)</span></span></span></span>
+Untuk validasi dari langkah pertama jumlah bit yang dibutuhkan adalah sebanyak 19968 ~ 1024 * 19.</li>
+</ol>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python">app.config[<span class="hljs-string">&#x27;MAX_CONTENT_LENGTH&#x27;</span>] = <span class="hljs-number">16</span> * <span class="hljs-number">1024</span> * <span class="hljs-number">1024</span>
+ALLOWED_EXTENSIONS = <span class="hljs-built_in">set</span>([<span class="hljs-string">&#x27;txt&#x27;</span>, <span class="hljs-string">&#x27;pdf&#x27;</span>, <span class="hljs-string">&#x27;png&#x27;</span>, <span class="hljs-string">&#x27;jpg&#x27;</span>, <span class="hljs-string">&#x27;jpeg&#x27;</span>, <span class="hljs-string">&#x27;gif&#x27;</span>])</code></pre></figure>
+<p>karena rule diatas memenuhi maka bisa dilakukan satu kali mengirim file. Saya menggunakan format file txt dengan isi sbb:</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># dump.py &gt; dump.txt</span>
+<span class="hljs-string">&#x27;a&#x27;</span>*((<span class="hljs-number">624</span> * <span class="hljs-number">32</span>)//<span class="hljs-number">8</span>)</code></pre></figure>
+<p>Setelah membuat dump/txt dilakukan pengiriman dan mendapatkan predict number dan flag didapatkan.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> randcrack <span class="hljs-keyword">import</span> RandCrack
+<span class="hljs-keyword">import</span> requests
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> bytes_to_long <span class="hljs-keyword">as</span> btl, long_to_bytes <span class="hljs-keyword">as</span> ltb
+<span class="hljs-keyword">import</span> random
+
+rc = RandCrack()
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">xor</span>(<span class="hljs-params">a, b</span>):
+    <span class="hljs-keyword">return</span> <span class="hljs-string">b&#x27;&#x27;</span>.join([<span class="hljs-built_in">bytes</span>([_a ^ _b]) <span class="hljs-keyword">for</span> _a, _b <span class="hljs-keyword">in</span> <span class="hljs-built_in">zip</span>(a, b)])
+
+url = <span class="hljs-string">&quot;http://ctf.tcp1p.com:54734&quot;</span>
+<span class="hljs-comment"># url = &quot;http://127.0.0.1:5000&quot;</span>
+
+flagurl = url + <span class="hljs-string">&#x27;/flago&#x27;</span>
+
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;dump.txt&quot;</span>, <span class="hljs-string">&quot;rb&quot;</span>) <span class="hljs-keyword">as</span> a_file:
+    file_dict = {<span class="hljs-string">&quot;file&quot;</span>: a_file}
+    response = requests.post(url, files=file_dict, allow_redirects=<span class="hljs-literal">True</span>)
+    output = response.content
+    <span class="hljs-built_in">print</span>(output)
+    db = []
+    <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>,<span class="hljs-built_in">len</span>(output),<span class="hljs-number">4</span>):
+        less = output[j:j+<span class="hljs-number">4</span>]
+        db.append(btl(xor(less, <span class="hljs-string">b&#x27;aaaa&#x27;</span>)))
+    db = db[::-<span class="hljs-number">1</span>]
+    <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> db:
+        rc.submit(j)
+    <span class="hljs-comment"># checkpredict</span>
+    <span class="hljs-comment"># latih = btl(xor(output, b&#x27;aaaa&#x27;))</span>
+    <span class="hljs-comment"># if(i&lt;624):</span>
+    <span class="hljs-comment">#     rc.submit(latih)</span>
+    <span class="hljs-comment">#     print(latih)</span>
+    <span class="hljs-comment"># else:</span>
+    <span class="hljs-comment">#     gues = rc.predict_getrandbits(32)</span>
+    <span class="hljs-comment">#     assert latih == gues</span>
+    <span class="hljs-comment">#     print(gues)</span>
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;dep.txt&quot;</span>, <span class="hljs-string">&quot;rb&quot;</span>) <span class="hljs-keyword">as</span> a_file:
+    file_dict = {<span class="hljs-string">&quot;file&quot;</span>: a_file}
+    response = requests.post(url, files=file_dict, allow_redirects=<span class="hljs-literal">True</span>)
+    output = response.content
+    latih = btl(xor(output, <span class="hljs-string">b&#x27;aaaa&#x27;</span>))
+    <span class="hljs-built_in">print</span>(latih)
+    <span class="hljs-built_in">print</span>(rc.predict_getrandbits(<span class="hljs-number">32</span>))
+
+response = requests.get(flagurl, allow_redirects=<span class="hljs-literal">True</span>)
+bdata = response.content
+lls = <span class="hljs-built_in">len</span>(bdata)*<span class="hljs-number">8</span>
+<span class="hljs-built_in">print</span>(lls%<span class="hljs-number">32</span>)
+<span class="hljs-comment"># ran = rc.predict_getrandbits(lls*8)</span>
+<span class="hljs-comment"># print(ran)</span>
+key = <span class="hljs-string">&#x27;&#x27;</span>
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(lls//<span class="hljs-number">32</span>):
+    key = <span class="hljs-built_in">bin</span>(rc.predict_getrandbits(<span class="hljs-number">32</span>))[<span class="hljs-number">2</span>:].zfill(<span class="hljs-number">32</span>) + key
+key = <span class="hljs-built_in">bin</span>(rc.predict_getrandbits(lls%<span class="hljs-number">32</span>))[<span class="hljs-number">2</span>:].zfill(lls%<span class="hljs-number">32</span>) + key
+<span class="hljs-built_in">print</span>(<span class="hljs-built_in">int</span>(key,<span class="hljs-number">2</span>))
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;key get out&quot;</span>)
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;flag.jpg&quot;</span>,<span class="hljs-string">&quot;wb&quot;</span>) <span class="hljs-keyword">as</span> por:
+    por.write(xor(ltb(<span class="hljs-built_in">int</span>(key,<span class="hljs-number">2</span>)), bdata))
+<span class="hljs-comment"># print(xor(ltb(int(key,2)), bdata))</span>
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Done all equipment&quot;</span>)
+</code></pre></figure>
+<p>Flag yang didapatkan berada pada sebuah image return.
+<img src="https://hackmd.io/_uploads/Bkp1TmqZ6.jpg" alt="flag.jpg" loading="lazy" decoding="async" /></p>
+<blockquote>
+<p>TCP1P{life&#39;s_twisted_like_a_back_road_in_the_country}</p>
+</blockquote>
+<hr>
+<h3 id="shiftgner"><a class="anchor" href="#shiftgner" aria-hidden="true">#</a>Shiftgner</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># shift.py</span>
+<span class="hljs-keyword">import</span> os
+
+flag = <span class="hljs-built_in">open</span>(<span class="hljs-string">&#x27;flag.txt&#x27;</span>,<span class="hljs-string">&#x27;r&#x27;</span>).read()
+<span class="hljs-keyword">assert</span> flag.startswith(<span class="hljs-string">&#x27;TCP1P{&#x27;</span>) <span class="hljs-keyword">and</span> flag.endswith(<span class="hljs-string">&#x27;}&#x27;</span>)
+flag = flag[<span class="hljs-number">6</span>:-<span class="hljs-number">1</span>]
+<span class="hljs-keyword">assert</span> <span class="hljs-built_in">len</span>(flag) == <span class="hljs-number">32</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Shiftgner</span>:
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, mask</span>):
+        <span class="hljs-variable language_">self</span>.mask = <span class="hljs-built_in">int</span>.from_bytes(mask, byteorder=<span class="hljs-string">&#x27;big&#x27;</span>)
+        <span class="hljs-comment"># print(self.mask)</span>
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">next</span>(<span class="hljs-params">self</span>):
+        c = <span class="hljs-variable language_">self</span>.state &amp; <span class="hljs-variable language_">self</span>.mask
+        x = <span class="hljs-number">0</span>
+        <span class="hljs-keyword">while</span> c:
+            x ^= c &amp; <span class="hljs-number">1</span>
+            c &gt;&gt;= <span class="hljs-number">1</span>
+        <span class="hljs-variable language_">self</span>.state = ((<span class="hljs-variable language_">self</span>.state &lt;&lt; <span class="hljs-number">1</span>) ^ x) &amp; <span class="hljs-number">2</span>**<span class="hljs-number">256</span>-<span class="hljs-number">1</span>
+        <span class="hljs-keyword">return</span> x
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">sign</span>(<span class="hljs-params">self, msg</span>):
+        <span class="hljs-variable language_">self</span>.state = msg
+        
+        op  = <span class="hljs-variable language_">self</span>.<span class="hljs-built_in">next</span>()
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">255</span>):
+            op &lt;&lt;= <span class="hljs-number">1</span>
+            op ^= <span class="hljs-variable language_">self</span>.<span class="hljs-built_in">next</span>()
+        <span class="hljs-comment"># print(&quot;leng op = &quot;,len(bin(op)))</span>
+        op ^= msg
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">hex</span>(op)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">verify</span>(<span class="hljs-params">self, msg, sig</span>):
+        <span class="hljs-keyword">return</span> <span class="hljs-variable language_">self</span>.sign(msg) == sig
+
+mask = os.urandom(<span class="hljs-number">32</span>)
+signer = Shiftgner(mask)
+
+<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;1. Sign&#x27;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;2. Verify&#x27;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;3. Get Flag&#x27;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;4. Exit&#x27;</span>)
+    op = <span class="hljs-built_in">int</span>(<span class="hljs-built_in">input</span>(<span class="hljs-string">&#x27;&gt; &#x27;</span>))
+    <span class="hljs-keyword">if</span> op == <span class="hljs-number">1</span>:
+        msg = <span class="hljs-built_in">int</span>(<span class="hljs-built_in">input</span>(<span class="hljs-string">&#x27;Message (hex): &#x27;</span>), <span class="hljs-number">16</span>)
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;Signature:&#x27;</span>, signer.sign(msg))
+    <span class="hljs-keyword">elif</span> op == <span class="hljs-number">2</span>:
+        msg = <span class="hljs-built_in">int</span>(<span class="hljs-built_in">input</span>(<span class="hljs-string">&#x27;Message (hex): &#x27;</span>), <span class="hljs-number">16</span>)
+        sig = <span class="hljs-built_in">input</span>(<span class="hljs-string">&#x27;Signature: &#x27;</span>)
+        <span class="hljs-keyword">if</span> signer.verify(msg, sig):
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;OK&#x27;</span>)
+        <span class="hljs-keyword">else</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;Invalid&#x27;</span>)
+    <span class="hljs-keyword">elif</span> op == <span class="hljs-number">3</span>:
+        <span class="hljs-built_in">print</span>(signer.sign(<span class="hljs-built_in">int</span>.from_bytes(flag.encode(), byteorder=<span class="hljs-string">&#x27;big&#x27;</span>)))
+    <span class="hljs-keyword">elif</span> op == <span class="hljs-number">4</span>:
+        exit()
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;Invalid&#x27;</span>)</code></pre></figure>
+<p>Diberikan sebuah server penggunaan signature dengan menggunakan algoritma LFSR (class Shifter). Dalam fungsi sign diidentifikasi untuk state yang digunakan dari message yang diberikan, dari sini kita bisa menggunakan known plaintext attack untuk menebak mask dari LFSR karena kita mengetahui bit output dari LFSR = 2 * bit state. Saya menggunakan fungsi recover_mask_lsb dari link:
+<a href="https://gist.github.com/badmonkey7/371c9c5b2dd4564646e2ecfe2d4403ac">https://gist.github.com/badmonkey7/371c9c5b2dd4564646e2ecfe2d4403ac</a> untuk melakukan recover mask. Persamaan yang digunakan:</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>S</mi><mi>i</mi><mo>=</mo><mi>s</mi><mi>t</mi><mi>a</mi><mi>t</mi><mi>e</mi><mo stretchy="false">[</mo><mi>i</mi><mo stretchy="false">]</mo></mrow><annotation encoding="application/x-tex">Si=state[i]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mord mathnormal">i</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">s</span><span class="mord mathnormal">t</span><span class="mord mathnormal">a</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mopen">[</span><span class="mord mathnormal">i</span><span class="mclose">]</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>S</mi><mn>0</mn><mo>=</mo><mi>m</mi><mi>e</mi><mi>s</mi><mi>s</mi><mi>a</mi><mi>g</mi><mi>e</mi></mrow><annotation encoding="application/x-tex">S0=message</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mord">0</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">m</span><span class="mord mathnormal">ess</span><span class="mord mathnormal">a</span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mord mathnormal">e</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>S</mi><mn>1</mn><mo>=</mo><mi>x</mi><mi>o</mi><mi>r</mi><mo stretchy="false">(</mo><mi>s</mi><mi>i</mi><mi>g</mi><mi>n</mi><mo separator="true">,</mo><mi>m</mi><mi>e</mi><mi>s</mi><mi>s</mi><mi>a</mi><mi>g</mi><mi>e</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">S1=xor(sign,message)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mord">1</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">x</span><span class="mord mathnormal" style="margin-right:0.0278em;">or</span><span class="mopen">(</span><span class="mord mathnormal">s</span><span class="mord mathnormal">i</span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mord mathnormal">n</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">m</span><span class="mord mathnormal">ess</span><span class="mord mathnormal">a</span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mord mathnormal">e</span><span class="mclose">)</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>o</mi><mi>u</mi><mi>t</mi><mi>p</mi><mi>u</mi><mi>t</mi><mo>=</mo><mi>S</mi><mn>0</mn><mtext> </mtext><mi mathvariant="normal">∣</mi><mtext> </mtext><mi>S</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">output=S0{\space}|{\space}S1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8095em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">o</span><span class="mord mathnormal">u</span><span class="mord mathnormal">tp</span><span class="mord mathnormal">u</span><span class="mord mathnormal">t</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mord">0</span><span class="mord"><span class="mspace"> </span></span><span class="mord">∣</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mord">1</span></span></span></span></span>
+<p>Setelah mendapatkan flag saya bisa menyelesaikan persamaan linear flag pada GF(2) dengan jumlah variable adalah 256 variabel. Saya menggunakan fungsi rref pada matrix sage untuk mendapatkan hasilnya.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> bytes_to_long <span class="hljs-keyword">as</span> btl, long_to_bytes <span class="hljs-keyword">as</span> ltb
+<span class="hljs-comment"># from z3 import Solver, BitVec, sat</span>
+<span class="hljs-keyword">from</span> sage.<span class="hljs-built_in">all</span> <span class="hljs-keyword">import</span> Matrix, GF, PolynomialRing, vector
+
+
+<span class="hljs-comment"># io = process(&quot;./shift.py&quot;)</span>
+io = remote(<span class="hljs-string">&quot;ctf.tcp1p.com&quot;</span>,<span class="hljs-string">&quot;13342&quot;</span>)
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Shiftgner</span>:
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, mask</span>):
+        <span class="hljs-variable language_">self</span>.mask = mask
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">next</span>(<span class="hljs-params">self</span>):
+        c = <span class="hljs-variable language_">self</span>.state &amp; <span class="hljs-variable language_">self</span>.mask
+        x = <span class="hljs-number">0</span>
+        <span class="hljs-keyword">while</span> c:
+            x ^= c &amp; <span class="hljs-number">1</span>
+            c &gt;&gt;= <span class="hljs-number">1</span>
+        <span class="hljs-variable language_">self</span>.state = ((<span class="hljs-variable language_">self</span>.state &lt;&lt; <span class="hljs-number">1</span>) ^ x) &amp; <span class="hljs-number">2</span>**<span class="hljs-number">256</span>-<span class="hljs-number">1</span>
+        <span class="hljs-keyword">return</span> x
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">sign</span>(<span class="hljs-params">self, msg</span>):
+        <span class="hljs-variable language_">self</span>.state = msg
+        
+        op  = <span class="hljs-variable language_">self</span>.<span class="hljs-built_in">next</span>()
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">255</span>):
+            op &lt;&lt;= <span class="hljs-number">1</span>
+            op ^= <span class="hljs-variable language_">self</span>.<span class="hljs-built_in">next</span>()
+        op ^= msg
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">hex</span>(op)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">verify</span>(<span class="hljs-params">self, msg, sig</span>):
+        <span class="hljs-keyword">return</span> <span class="hljs-variable language_">self</span>.sign(msg) == sig
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">xorbits</span>(<span class="hljs-params">x</span>):
+    hasil = <span class="hljs-number">0</span>
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> x:
+        hasil ^= <span class="hljs-built_in">int</span>(i)
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">str</span>(hasil)
+
+<span class="hljs-comment"># source from https://gist.github.com/badmonkey7/371c9c5b2dd4564646e2ecfe2d4403ac </span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">recover_mask_lsb</span>(<span class="hljs-params">output, bits</span>):
+    <span class="hljs-string">&#x27;&#x27;&#x27;
+    
+    :param output: 由2*bits lsb位构成的输出
+    :param bits: 级数
+    :return:  返回掩码（素多项式）
+    &#x27;&#x27;&#x27;</span>
+    O = [<span class="hljs-built_in">int</span>(i) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> output]
+    B = vector(GF(<span class="hljs-number">2</span>), O[bits:<span class="hljs-number">2</span> * bits])
+    X = Matrix(GF(<span class="hljs-number">2</span>), bits, bits)
+    <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(bits):
+        X[j] = O[j:j + bits]
+    mask = B * X.inverse()
+    MASK = <span class="hljs-built_in">int</span>(<span class="hljs-string">&#x27;&#x27;</span>.join([<span class="hljs-built_in">str</span>(i) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">list</span>(mask)]), <span class="hljs-number">2</span>)
+    <span class="hljs-keyword">return</span> MASK
+
+<span class="hljs-keyword">if</span> __name__==<span class="hljs-string">&quot;__main__&quot;</span>:
+    <span class="hljs-comment"># mms = int(io.recvline().decode())</span>
+    io.recvuntil(<span class="hljs-string">b&quot;&gt; &quot;</span>)
+    io.sendline(<span class="hljs-string">b&quot;1&quot;</span>)
+    io.recvuntil(<span class="hljs-string">b&quot;(hex): &quot;</span>)
+    payload = <span class="hljs-built_in">int</span>(<span class="hljs-string">&#x27;1&#x27;</span>*<span class="hljs-number">300</span>,<span class="hljs-number">2</span>)
+    td = <span class="hljs-built_in">hex</span>(payload)[<span class="hljs-number">2</span>:].encode()
+    io.sendline(td)
+    <span class="hljs-comment"># scsr = io.recvline().decode().strip()</span>
+    io.recvuntil(<span class="hljs-string">b&quot;Signature: &quot;</span>)
+    sg = <span class="hljs-built_in">int</span>(io.recvline().decode().strip(),<span class="hljs-number">16</span>)
+    rets = payload^sg
+    scs = <span class="hljs-built_in">bin</span>(rets)[<span class="hljs-number">2</span>:].zfill(<span class="hljs-number">256</span>)
+    <span class="hljs-built_in">print</span>(scs)
+    <span class="hljs-comment"># print(scsr)</span>
+    <span class="hljs-comment"># tabun</span>
+    ou = <span class="hljs-string">&#x27;1&#x27;</span>*<span class="hljs-number">256</span> + scs
+    <span class="hljs-built_in">print</span>(ou)
+    mask = recover_mask_lsb(ou, <span class="hljs-number">256</span>)
+    <span class="hljs-comment"># print(mms)</span>
+    <span class="hljs-built_in">print</span>(mask)
+    shifter = Shiftgner(mask)
+    sg1 = shifter.sign(payload)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;checking&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-built_in">int</span>(sg1,<span class="hljs-number">16</span>))
+    <span class="hljs-built_in">print</span>(sg)
+    io.recvuntil(<span class="hljs-string">b&quot;&gt; &quot;</span>)
+    io.sendline(<span class="hljs-string">b&quot;3&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;getout flag&quot;</span>)
+    <span class="hljs-comment"># print(io.recvline())</span>
+    flagint = <span class="hljs-built_in">int</span>(io.recvline().decode().strip(),<span class="hljs-number">16</span>)
+    <span class="hljs-built_in">print</span>(flagint)
+    fint = <span class="hljs-built_in">bin</span>(flagint)[<span class="hljs-number">2</span>:].zfill(<span class="hljs-number">256</span>)
+    tblmask = <span class="hljs-built_in">bin</span>(mask)[<span class="hljs-number">2</span>:].zfill(<span class="hljs-number">256</span>)
+    <span class="hljs-built_in">print</span>(tblmask)
+
+
+    asp = [<span class="hljs-string">&quot;v&quot;</span>+<span class="hljs-built_in">str</span>(i) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>)]
+    vart = PolynomialRing(GF(<span class="hljs-number">2</span>), asp).gens()
+
+    mat = []
+
+    ds = []
+    <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>):
+        eq = <span class="hljs-number">0</span>
+        bases = []
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(j, <span class="hljs-number">256</span>):
+            bases.append(vart[i])
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> ds:
+            bases.append(i)
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>):
+            <span class="hljs-keyword">if</span>(tblmask[i]==<span class="hljs-string">&#x27;1&#x27;</span>):
+                eq += bases[i]
+        ds.append(eq)
+        eq += vart[j]
+        pars = eq.variables()
+        ton = []
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>):
+            <span class="hljs-keyword">if</span>(vart[i] <span class="hljs-keyword">in</span> pars): ton.append(<span class="hljs-number">1</span>)
+            <span class="hljs-keyword">else</span>: ton.append(<span class="hljs-number">0</span>)
+        ton.append(<span class="hljs-built_in">int</span>(fint[j]))
+        mat.append(ton)
+
+    mat = Matrix(GF(<span class="hljs-number">2</span>), mat)
+    out = mat.rref()
+    opt = <span class="hljs-string">&#x27;&#x27;</span>
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> out:
+        opt+=<span class="hljs-built_in">str</span>(i[-<span class="hljs-number">1</span>])
+    <span class="hljs-built_in">print</span>(opt)
+    hasil = <span class="hljs-built_in">int</span>(opt,<span class="hljs-number">2</span>)
+    <span class="hljs-built_in">print</span>(ltb(hasil))</code></pre></figure>
+<blockquote>
+<p>TCP1P{well_not_safe_enough_apparently!}</p>
+</blockquote>
+<hr>
+<h3 id="open-the-noor"><a class="anchor" href="#open-the-noor" aria-hidden="true">#</a>Open the Noor</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment">#!/bin/env python3</span>
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">import</span> string
+
+CHARSET = <span class="hljs-string">&quot;ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789&quot;</span>
+KEY = os.urandom(<span class="hljs-number">16</span>)
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Systems</span>:
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-variable language_">self</span>.adminpass = <span class="hljs-variable language_">self</span>.gen_password()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">pad</span>(<span class="hljs-params">self, s</span>):
+	    <span class="hljs-keyword">return</span> s + (<span class="hljs-number">16</span> - <span class="hljs-built_in">len</span>(s) % <span class="hljs-number">16</span>) * <span class="hljs-built_in">chr</span>(<span class="hljs-number">16</span> - <span class="hljs-built_in">len</span>(s) % <span class="hljs-number">16</span>).encode()
+		
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">unpad</span>(<span class="hljs-params">self, pt</span>):
+		pad_length = pt[-<span class="hljs-number">1</span>]
+		<span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-number">1</span> &lt;= pad_length &lt;= <span class="hljs-number">16</span>:
+			<span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>
+		<span class="hljs-keyword">if</span> <span class="hljs-variable language_">self</span>.pad(pt[:-pad_length]) != pt:
+			<span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>
+		<span class="hljs-keyword">return</span> pt[:-pad_length]
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">encryption</span>(<span class="hljs-params">self, msg</span>):
+		iv = os.urandom(<span class="hljs-number">16</span>)
+		cipher = AES.new(KEY, AES.MODE_CBC, iv=iv)
+		<span class="hljs-keyword">return</span> (iv + cipher.encrypt(msg)).<span class="hljs-built_in">hex</span>()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">decryption</span>(<span class="hljs-params">self, msg</span>):
+		msg = <span class="hljs-built_in">bytes</span>.fromhex(msg)
+		ivnya = msg[:<span class="hljs-number">16</span>]
+		msg = msg[<span class="hljs-number">16</span>:]
+		cipher = AES.new(KEY, AES.MODE_CBC, iv=ivnya)
+		<span class="hljs-keyword">return</span> <span class="hljs-variable language_">self</span>.unpad(cipher.decrypt(msg))
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">gen_password</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-keyword">return</span> <span class="hljs-string">&#x27;&#x27;</span>.join([random.choice(CHARSET)<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">40</span>)]).encode()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">secured_password</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-keyword">return</span> <span class="hljs-variable language_">self</span>.encryption(<span class="hljs-variable language_">self</span>.pad(<span class="hljs-variable language_">self</span>.adminpass))
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>():
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;You are connected to:&#x27;</span>)
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;=====================&#x27;</span>)
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;   The Sacred Noor   &#x27;</span>)
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;=====================&#x27;</span>)
+	systems = Systems()
+	<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+		<span class="hljs-keyword">try</span>:
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;&quot;</span>)
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;1. Login as Admin&quot;</span>)
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;2. Forgot password&quot;</span>)
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;3. Retrieve Encrypted Password&quot;</span>)
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;4. Exit&quot;</span>)
+			choice = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;&gt; &quot;</span>)
+			<span class="hljs-keyword">if</span> choice == <span class="hljs-string">&quot;1&quot;</span>:
+				<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Enter Admin Encrypted Password&quot;</span>)
+				userpass = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;[?] &quot;</span>)
+				check = systems.decryption(userpass)
+				<span class="hljs-keyword">if</span> check != <span class="hljs-literal">None</span>:
+					<span class="hljs-keyword">if</span> check == <span class="hljs-string">b&quot;nottheflagbutstillcrucialvalidation&quot;</span>:
+						<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Logged In!&quot;</span>)
+						<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Here&#x27;s your flag: TCP1P{REDACTED}&quot;</span>)
+					<span class="hljs-keyword">else</span>:
+						<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[!] INTRUDER ALERT &quot;</span>,check)
+				<span class="hljs-keyword">else</span>:
+					<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[!] Something&#x27;s wrong.&quot;</span>)
+			<span class="hljs-keyword">elif</span> choice == <span class="hljs-string">&quot;2&quot;</span>:
+				systems.adminpass = systems.gen_password()
+				<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Password Changed!&quot;</span>)
+			<span class="hljs-keyword">elif</span> choice == <span class="hljs-string">&quot;3&quot;</span>:
+				<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Secured Password&quot;</span>)
+				<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[+]&quot;</span>, systems.secured_password())
+			<span class="hljs-keyword">elif</span> choice == <span class="hljs-string">&quot;4&quot;</span>:
+				<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Bye then.&quot;</span>)
+				<span class="hljs-keyword">break</span>
+			<span class="hljs-keyword">else</span>:
+				<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Bzz error&quot;</span>)
+				exit()
+		<span class="hljs-keyword">except</span>:
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[!] Something&#x27;s wrong.&quot;</span>)
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&#x27;__main__&#x27;</span>:
+	main()</code></pre></figure>
+<p>Hemm mungkin untuk problem yang ini cukup simple yaitu diberikan sebuah server AES encryption pada mode CBC. Berikut proses checking dan decryption:</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python">check = systems.decryption(userpass)
+...
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">decryption</span>(<span class="hljs-params">self, msg</span>):
+    msg = <span class="hljs-built_in">bytes</span>.fromhex(msg)
+    ivnya = msg[:<span class="hljs-number">16</span>]
+    msg = msg[<span class="hljs-number">16</span>:]
+    cipher = AES.new(KEY, AES.MODE_CBC, iv=ivnya)
+    <span class="hljs-keyword">return</span> <span class="hljs-variable language_">self</span>.unpad(cipher.decrypt(msg))
+...
+<span class="hljs-keyword">if</span> check != <span class="hljs-literal">None</span>:
+    <span class="hljs-keyword">if</span> check == <span class="hljs-string">b&quot;nottheflagbutstillcrucialvalidation&quot;</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Logged In!&quot;</span>)
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Here&#x27;s your flag: TCP1P{REDACTED}&quot;</span>)
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[!] INTRUDER ALERT &quot;</span>,check)
+<span class="hljs-keyword">else</span>:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[!] Something&#x27;s wrong.&quot;</span>)
+...</code></pre></figure>
+<p>Bisa terlihat pada potongan tersebut digunakan fungsi padding dan pengecekan mendapatkan return yang berbeda untuk error decryption dan non admin decryption. Dari sinilah dapat dilakukan serangan Padding Oracle Attack untuk bisa mendapatkan ciphertext dari admin untuk kasus ini diharapkan dec(cipher) = &#39;nottheflagbutstillcrucialvalidation&#39;.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+
+<span class="hljs-comment"># io = process(&quot;./chall.py&quot;)</span>
+io = remote(<span class="hljs-string">&quot;ctf.tcp1p.com&quot;</span>,<span class="hljs-string">&quot;2223&quot;</span>)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">getRes</span>(<span class="hljs-params">x</span>):
+    io.recvuntil(<span class="hljs-string">b&quot;&gt; &quot;</span>)
+    io.sendline(<span class="hljs-string">b&quot;1&quot;</span>)
+    io.recvuntil(<span class="hljs-string">b&quot;[?] &quot;</span>)
+    io.sendline(x.<span class="hljs-built_in">hex</span>().encode())
+    res = io.recvline().decode()
+    <span class="hljs-keyword">if</span>(<span class="hljs-string">&quot;INTRUDER&quot;</span> <span class="hljs-keyword">in</span> res): 
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>
+    <span class="hljs-keyword">elif</span>(<span class="hljs-string">&quot;wrong&quot;</span> <span class="hljs-keyword">in</span> res): <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>
+    <span class="hljs-keyword">else</span>: <span class="hljs-keyword">return</span> <span class="hljs-number">2</span>
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">repairKnown</span>(<span class="hljs-params">last</span>):
+    known = <span class="hljs-string">b&#x27;&#x27;</span>
+    <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">16</span>):
+        bef = <span class="hljs-string">b&#x27;a&#x27;</span>*(<span class="hljs-number">16</span>-j-<span class="hljs-number">1</span>)
+        peek = long_to_bytes(j+<span class="hljs-number">1</span>) * (j)
+        target = long_to_bytes(j+<span class="hljs-number">1</span>)
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>):
+            bt = long_to_bytes(i)
+            bets = bt + xor(known, peek)
+            payload = bef+bets+last
+            resp = getRes(payload)
+            <span class="hljs-keyword">if</span>(resp!=<span class="hljs-number">0</span>):
+                known = xor(bt, target) + known
+                <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">return</span> known
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    targets = <span class="hljs-string">b&#x27;nottheflagbutstillcrucialvalidation&#x27;</span>
+    lastpad = <span class="hljs-number">48</span>-<span class="hljs-built_in">len</span>(targets)
+    pads = long_to_bytes(lastpad) * lastpad
+    targets += pads
+    tt = [targets[i:i+<span class="hljs-number">16</span>] <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-number">48</span>, <span class="hljs-number">16</span>)]
+    <span class="hljs-keyword">assert</span>(<span class="hljs-built_in">len</span>(targets)%<span class="hljs-number">16</span>==<span class="hljs-number">0</span>)
+    c3 = <span class="hljs-string">b&#x27;a&#x27;</span>*<span class="hljs-number">16</span>
+    rp3 = repairKnown(c3)
+    c2 = xor(tt[<span class="hljs-number">2</span>], rp3)
+    rp2 = repairKnown(c2)
+    c1 = xor(tt[<span class="hljs-number">1</span>], rp2)
+    rp1 = repairKnown(c1)
+    iv = xor(tt[<span class="hljs-number">0</span>], rp1)
+    payload = iv + c1 + c2 + c3
+    <span class="hljs-built_in">print</span>(<span class="hljs-built_in">len</span>(payload))
+    hasil = getRes(payload)
+    <span class="hljs-keyword">if</span>(hasil==<span class="hljs-number">2</span>):
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Founded flag!!&quot;</span>)
+        flag = io.recvline()
+        <span class="hljs-built_in">print</span>(flag)</code></pre></figure>
+<blockquote>
+<p>TCP1P{they_are_the_one_who_knocks}</p>
+</blockquote>
+<hr>
+<h3 id="eclairs"><a class="anchor" href="#eclairs" aria-hidden="true">#</a>Eclairs</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment">#!/bin/env python3</span>
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> getPrime, bytes_to_long
+<span class="hljs-keyword">from</span> sympy.ntheory.modular <span class="hljs-keyword">import</span> crt
+<span class="hljs-keyword">from</span> libnum.ecc <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">import</span> time
+
+<span class="hljs-keyword">while</span> (p:=getPrime(<span class="hljs-number">256</span>)) % <span class="hljs-number">4</span> != <span class="hljs-number">3</span>: <span class="hljs-keyword">pass</span>
+<span class="hljs-keyword">while</span> (q:=getPrime(<span class="hljs-number">256</span>)) % <span class="hljs-number">4</span> != <span class="hljs-number">3</span>: <span class="hljs-keyword">pass</span>
+e = <span class="hljs-number">3</span>
+n = p*q
+a = getPrime(<span class="hljs-number">256</span>)
+b = getPrime(<span class="hljs-number">256</span>)
+E = Curve(a, b, n)
+<span class="hljs-comment"># print(n,a,b)</span>
+flag = bytes_to_long(<span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;flag.txt&quot;</span>, <span class="hljs-string">&quot;rb&quot;</span>).read())
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">sqrt_mod</span>(<span class="hljs-params">a</span>):
+    <span class="hljs-keyword">assert</span> p % <span class="hljs-number">4</span> == <span class="hljs-number">3</span>
+    <span class="hljs-keyword">assert</span> q % <span class="hljs-number">4</span> == <span class="hljs-number">3</span>
+    r = <span class="hljs-built_in">int</span>(crt([p,q],[<span class="hljs-built_in">pow</span>(a,(p+<span class="hljs-number">1</span>)//<span class="hljs-number">4</span>,p), <span class="hljs-built_in">pow</span>(a,(q+<span class="hljs-number">1</span>)//<span class="hljs-number">4</span>,q)])[<span class="hljs-number">0</span>])
+    n = p*q
+    <span class="hljs-keyword">if</span> <span class="hljs-built_in">pow</span>(r,<span class="hljs-number">2</span>,n) == a % n:
+        <span class="hljs-keyword">return</span> r
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">lift_x</span>(<span class="hljs-params">x</span>):
+    y = sqrt_mod(x**<span class="hljs-number">3</span> + a*x + b)
+    <span class="hljs-keyword">if</span> y:
+        <span class="hljs-keyword">return</span> (x, y)
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">find_coordinates</span>(<span class="hljs-params">x</span>):
+    P = lift_x(x)
+    <span class="hljs-keyword">if</span> P:
+        x,y = P
+        <span class="hljs-keyword">return</span> (<span class="hljs-built_in">pow</span>(x,e,n), <span class="hljs-built_in">pow</span>(y,e,n))
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">captcha</span>():
+    <span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+        x = random.randint(<span class="hljs-number">1</span>, n)
+        P = lift_x(x)
+        <span class="hljs-keyword">if</span> P : <span class="hljs-keyword">break</span>
+    k = random.randint(<span class="hljs-number">1</span>,n)
+    <span class="hljs-comment"># print(str(E.power(P,k)))</span>
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;HOLD UP!!!!&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;YOU ARE ABOUT TO DO SOMETHING VERY CONFIDENTIAL&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;WE NEED TO MAKE SURE THAT YOU ARE NOT A ROBOT&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Calculate <span class="hljs-subst">{k}</span> X <span class="hljs-subst">{P}</span>&quot;</span>)
+    ans = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;Answer: &quot;</span>)
+    <span class="hljs-keyword">return</span> ans == <span class="hljs-built_in">str</span>(E.power(P,k))
+
+<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;1. Check out my cool curve&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;2. Get flag&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;3. Exit&quot;</span>)
+    choice = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;&gt;&gt; &quot;</span>)
+
+    <span class="hljs-keyword">if</span> choice == <span class="hljs-string">&quot;1&quot;</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;This point is generated using the following parameter:&quot;</span>)
+        <span class="hljs-comment"># encrypted because I don&#x27;t want anyone to steal my cool curve &gt;:(</span>
+        <span class="hljs-built_in">print</span>(<span class="hljs-built_in">pow</span>(a,e,n))
+        <span class="hljs-built_in">print</span>(<span class="hljs-built_in">pow</span>(b,e,n))
+        x = <span class="hljs-built_in">int</span>(<span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;x: &quot;</span>))
+        P = find_coordinates(x)
+        <span class="hljs-keyword">if</span> P:
+            <span class="hljs-built_in">print</span>(P)
+        <span class="hljs-keyword">else</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Not found :(&quot;</span>)
+
+    <span class="hljs-keyword">elif</span> choice == <span class="hljs-string">&quot;2&quot;</span>:
+        <span class="hljs-keyword">if</span> captcha():
+            <span class="hljs-built_in">print</span>(<span class="hljs-built_in">pow</span>(flag, e, n))
+        <span class="hljs-keyword">else</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;GO AWAY!!!&quot;</span>)
+            exit()
+    <span class="hljs-keyword">elif</span> choice == <span class="hljs-string">&quot;3&quot;</span>:
+        exit()
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;??&quot;</span>)
+        exit()</code></pre></figure>
+<p>Dari program diatas bisa diketahui implementasi dari ECC dan RSA. Identifikasi kelemahan pada RSA:</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python">...
+<span class="hljs-keyword">while</span> (p:=getPrime(<span class="hljs-number">256</span>)) % <span class="hljs-number">4</span> != <span class="hljs-number">3</span>: <span class="hljs-keyword">pass</span>
+<span class="hljs-keyword">while</span> (q:=getPrime(<span class="hljs-number">256</span>)) % <span class="hljs-number">4</span> != <span class="hljs-number">3</span>: <span class="hljs-keyword">pass</span>
+e = <span class="hljs-number">3</span>
+n = p*q
+...
+<span class="hljs-keyword">elif</span> choice == <span class="hljs-string">&quot;2&quot;</span>:
+    <span class="hljs-keyword">if</span> captcha():
+        <span class="hljs-built_in">print</span>(<span class="hljs-built_in">pow</span>(flag, e, n))
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;GO AWAY!!!&quot;</span>)
+        exit()
+...</code></pre></figure>
+<p>Dari potongan diatas kita karena nilai <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi></mrow><annotation encoding="application/x-tex">e</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">e</span></span></span></span> kecil kita bisa membangkitkan beberapa kali <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">n</span></span></span></span> dan recover flag menggunakan CRT. Masalahnya kita harus melakukan bypass dari fungsi captcha. </p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python">...
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">captcha</span>():
+    <span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+        x = random.randint(<span class="hljs-number">1</span>, n)
+        P = lift_x(x)
+        <span class="hljs-keyword">if</span> P : <span class="hljs-keyword">break</span>
+    k = random.randint(<span class="hljs-number">1</span>,n)
+    <span class="hljs-comment"># print(str(E.power(P,k)))</span>
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;HOLD UP!!!!&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;YOU ARE ABOUT TO DO SOMETHING VERY CONFIDENTIAL&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;WE NEED TO MAKE SURE THAT YOU ARE NOT A ROBOT&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Calculate <span class="hljs-subst">{k}</span> X <span class="hljs-subst">{P}</span>&quot;</span>)
+    ans = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;Answer: &quot;</span>)
+    <span class="hljs-keyword">return</span> ans == <span class="hljs-built_in">str</span>(E.power(P,k))
+...
+<span class="hljs-keyword">if</span> choice == <span class="hljs-string">&quot;1&quot;</span>:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;This point is generated using the following parameter:&quot;</span>)
+    <span class="hljs-comment"># encrypted because I don&#x27;t want anyone to steal my cool curve &gt;:(</span>
+    <span class="hljs-built_in">print</span>(<span class="hljs-built_in">pow</span>(a,e,n))
+    <span class="hljs-built_in">print</span>(<span class="hljs-built_in">pow</span>(b,e,n))
+    x = <span class="hljs-built_in">int</span>(<span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;x: &quot;</span>))
+    P = find_coordinates(x)
+    <span class="hljs-keyword">if</span> P:
+        <span class="hljs-built_in">print</span>(P)
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Not found :(&quot;</span>)
+...
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">find_coordinates</span>(<span class="hljs-params">x</span>):
+    P = lift_x(x)
+    <span class="hljs-keyword">if</span> P:
+        x,y = P
+        <span class="hljs-keyword">return</span> (<span class="hljs-built_in">pow</span>(x,e,n), <span class="hljs-built_in">pow</span>(y,e,n))
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+...</code></pre></figure>
+<p>Dari potongan diatas fungsi captcha hanya melakukan pengecekan apakah kita bisa mendapatkan kurva yang dimaksut. Kurva yang dimaksut memiliki parameter pembangkit <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mo separator="true">,</mo><mi>b</mi><mo separator="true">,</mo></mrow><annotation encoding="application/x-tex">a, b,</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">a</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">b</span><span class="mpunct">,</span></span></span></span> dan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">n</span></span></span></span>.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python">...
+a = getPrime(<span class="hljs-number">256</span>)
+b = getPrime(<span class="hljs-number">256</span>)
+E = Curve(a, b, n)
+...</code></pre></figure>
+<p>Pada choice 1 fitur kita bisa mendapatkan beberapa leak information diantaranya <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>a</mi><mn>3</mn></msup><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>n</mi></mrow><annotation encoding="application/x-tex">a^3{\space}mod{\space}n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8141em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">n</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>b</mi><mn>3</mn></msup><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>n</mi></mrow><annotation encoding="application/x-tex">b^3{\space}mod{\space}n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8141em;"></span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">n</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>x</mi><mn>3</mn></msup><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>n</mi></mrow><annotation encoding="application/x-tex">x^3{\space}mod{\space}n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8141em;"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">n</span></span></span></span>, dan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>y</mi><mn>3</mn></msup><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>n</mi></mrow><annotation encoding="application/x-tex">y^3{\space}mod{\space}n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0085em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">n</span></span></span></span> termasuk dari fungsi find_coordinates.</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msup><mi>y</mi><mn>2</mn></msup><mo>=</mo><msup><mi>x</mi><mn>3</mn></msup><mo>+</mo><msup><mi>a</mi><mi>x</mi></msup><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">y^2=x^3 + a^x + b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7977em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7144em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">x</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">b</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mo stretchy="false">(</mo><msup><mi>y</mi><mn>2</mn></msup><msup><mo stretchy="false">)</mo><mn>3</mn></msup><mo>=</mo><mo stretchy="false">(</mo><msup><mi>x</mi><mn>3</mn></msup><mo>+</mo><msup><mi>a</mi><mi>x</mi></msup><mo>+</mo><mi>b</mi><msup><mo stretchy="false">)</mo><mn>3</mn></msup></mrow><annotation encoding="application/x-tex">(y^2)^3=(x^3 + a^x + b)^3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7977em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7144em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">x</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mord mathnormal">b</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msup><mi>y</mi><mn>6</mn></msup><mo>=</mo><msup><mi>x</mi><mn>9</mn></msup><mo>+</mo><mn>3</mn><msup><mi>x</mi><mn>7</mn></msup><mi>a</mi><mo>+</mo><mi mathvariant="normal">.</mi><mi mathvariant="normal">.</mi><mi mathvariant="normal">.</mi><mo>+</mo><mn>3</mn><mi>x</mi><mi>a</mi><msup><mi>b</mi><mn>2</mn></msup><mo>+</mo><msup><mi>b</mi><mn>3</mn></msup></mrow><annotation encoding="application/x-tex">y^6= x^9 + 3x^7a + ... + 3xab^2 + b^3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">6</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">9</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord">3</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">7</span></span></span></span></span></span></span></span><span class="mord mathnormal">a</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6667em;vertical-align:-0.0833em;"></span><span class="mord">...</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord">3</span><span class="mord mathnormal">x</span><span class="mord mathnormal">a</span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8641em;"></span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span></span></span></span></span>
+<p>Kemudian dilakukan subtitusi pada masing-masing leak information bisa mendapatkan persamaan beikut.</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>k</mi><mn>1</mn><mi>a</mi><mo>+</mo><mi>k</mi><mn>2</mn><msup><mi>a</mi><mn>2</mn></msup><mo>+</mo><mi>k</mi><mn>3</mn><mi>b</mi><mo>+</mo><mi>k</mi><mn>3</mn><mi>a</mi><mi>b</mi><mo>+</mo><mi>k</mi><mn>4</mn><msup><mi>a</mi><mn>2</mn></msup><mi>b</mi><mo>+</mo><mi>k</mi><mn>5</mn><msup><mi>b</mi><mn>2</mn></msup><mo>−</mo><mi>k</mi><mn>6</mn><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">k1a+k2a^2+k3b+k3ab+k4a^2b+k5b^2-k6=0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">1</span><span class="mord mathnormal">a</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">2</span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">3</span><span class="mord mathnormal">b</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">3</span><span class="mord mathnormal">ab</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">4</span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord mathnormal">b</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">5</span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">6</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>k</mi><mn>7</mn><mi>a</mi><mo>+</mo><mi>k</mi><mn>8</mn><msup><mi>a</mi><mn>2</mn></msup><mo>+</mo><mi>k</mi><mn>9</mn><mi>b</mi><mo>+</mo><mi>k</mi><mn>10</mn><mi>a</mi><mi>b</mi><mo>+</mo><mi>k</mi><mn>11</mn><msup><mi>a</mi><mn>2</mn></msup><mi>b</mi><mo>+</mo><mi>k</mi><mn>12</mn><msup><mi>b</mi><mn>2</mn></msup><mo>−</mo><mi>k</mi><mn>13</mn><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">k7a+k8a^2+k9b+k10ab+k11a^2b+k12b^2-k13=0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">7</span><span class="mord mathnormal">a</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">8</span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">9</span><span class="mord mathnormal">b</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">10</span><span class="mord mathnormal">ab</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">11</span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord mathnormal">b</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">12</span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord">13</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi mathvariant="normal">.</mi><mi mathvariant="normal">.</mi><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">...</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.1056em;"></span><span class="mord">...</span></span></span></span></span>
+<p>Dari persamaan diatas mungkin kita bisa mendapatkan nilai <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi></mrow><annotation encoding="application/x-tex">a</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">a</span></span></span></span> dan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi></mrow><annotation encoding="application/x-tex">b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">b</span></span></span></span> dengan menggunakan grobner basis. Setelah saya coba ternyata untuk hasil grobner juga bisa menhasilkan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mo separator="true">,</mo><mi>b</mi><mo separator="true">,</mo></mrow><annotation encoding="application/x-tex">a, b,</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">a</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">b</span><span class="mpunct">,</span></span></span></span> bahkan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">n</span></span></span></span>.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python">...
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">calc_A</span>(<span class="hljs-params">rep</span>):
+    loki = []
+    <span class="hljs-keyword">for</span> a,b,r <span class="hljs-keyword">in</span> rep[<span class="hljs-number">0</span>:<span class="hljs-number">6</span>]:
+        fi = parseVal(r,a,b)
+        loki.append(fi)
+    I = Ideal(loki)
+    <span class="hljs-comment"># print(I)</span>
+    gb = I.groebner_basis()
+    <span class="hljs-built_in">print</span>(gb)
+    exit(<span class="hljs-number">1</span>)
+...</code></pre></figure>
+<p><img src="https://hackmd.io/_uploads/By-GpXqZ6.jpg" alt="grobner-try.jpg" loading="lazy" decoding="async" /></p>
+<p>Setelah itu tinggal menggunakan CRT untuk mendapatkan flag.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> sympy.ntheory.modular <span class="hljs-keyword">import</span> crt
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> sage.<span class="hljs-built_in">all</span> <span class="hljs-keyword">import</span> ZZ, PolynomialRing, factor, Ideal
+<span class="hljs-keyword">from</span> libnum.ecc <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> math
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> gmpy2
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">start</span>():
+    io = remote(<span class="hljs-string">&quot;ctf.tcp1p.com&quot;</span>,<span class="hljs-string">&quot;13341&quot;</span>)
+    <span class="hljs-comment"># io = process(&quot;./eclairs.py&quot;)</span>
+    <span class="hljs-comment"># print(io.recvline())</span>
+    <span class="hljs-keyword">return</span> io
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">getparam</span>(<span class="hljs-params">io, x</span>):
+    io.recvuntil(<span class="hljs-string">b&quot;&gt;&gt; &quot;</span>)
+    io.sendline(<span class="hljs-string">b&quot;1&quot;</span>)
+    io.recvuntil(<span class="hljs-string">b&quot;parameter:\n&quot;</span>)
+    a3 = <span class="hljs-built_in">int</span>(io.recvline().decode().strip())
+    b3 = <span class="hljs-built_in">int</span>(io.recvline().decode().strip())
+    io.recvuntil(<span class="hljs-string">b&quot;x: &quot;</span>)
+    io.sendline(<span class="hljs-built_in">str</span>(x).encode())
+    hasil = io.recvline().decode().strip()
+    <span class="hljs-keyword">if</span>(<span class="hljs-string">&quot;Not&quot;</span> <span class="hljs-keyword">in</span> hasil): <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+    <span class="hljs-keyword">else</span>: 
+        val = [<span class="hljs-built_in">int</span>(i) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> hasil[<span class="hljs-number">1</span>:-<span class="hljs-number">1</span>].split(<span class="hljs-string">&quot;,&quot;</span>)]
+        <span class="hljs-keyword">return</span> a3, b3, val
+
+
+<span class="hljs-comment"># theory solved</span>
+<span class="hljs-comment"># x^9 + 3*x^7*a + 3*x^5*a^2 + 3*x^6*b + x^3*a^3 + 6*x^4*a*b + 3*x^2*a^2*b + 3*x^3*b^2 + 3*x*a*b^2 + b^3</span>
+<span class="hljs-comment"># -     x a       x^2 a^2	  b         -         x a b       x^2 a^2 b     b^2         x a b^2 	-   --- values</span>
+<span class="hljs-comment"># x3^3  3*x3^2    3*x3        3*x3^2    x3*a3     6*x3        3             3*x3        3           b3  --- constant</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">parseVal</span>(<span class="hljs-params">resp, a3, b3</span>):
+    x3,y3 = resp
+    <span class="hljs-comment"># y^2</span>
+    y6 = y3**<span class="hljs-number">2</span>
+    <span class="hljs-comment"># x div ^2</span>
+    x = <span class="hljs-built_in">int</span>(gmpy2.iroot(x3,<span class="hljs-number">3</span>)[<span class="hljs-number">0</span>])
+    a,b = PolynomialRing(ZZ, [<span class="hljs-string">&#x27;a&#x27;</span>,<span class="hljs-string">&#x27;b&#x27;</span>]).gens()
+    f = x3**<span class="hljs-number">3</span> + <span class="hljs-number">3</span>*x3**<span class="hljs-number">2</span>*x*a + <span class="hljs-number">3</span>*x3*x**<span class="hljs-number">2</span>*a**<span class="hljs-number">2</span> + <span class="hljs-number">3</span>*x3**<span class="hljs-number">2</span>*b + x3*a3 + <span class="hljs-number">6</span>*x3*x*a*b + <span class="hljs-number">3</span>*x**<span class="hljs-number">2</span>*a**<span class="hljs-number">2</span>*b + <span class="hljs-number">3</span>*x3*b**<span class="hljs-number">2</span> + <span class="hljs-number">3</span>*x*a*b**<span class="hljs-number">2</span> + b3 - y6
+    <span class="hljs-keyword">return</span> f
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">calc_A</span>(<span class="hljs-params">rep</span>):
+    loki = []
+    <span class="hljs-keyword">for</span> a,b,r <span class="hljs-keyword">in</span> rep[<span class="hljs-number">0</span>:<span class="hljs-number">6</span>]:
+        fi = parseVal(r,a,b)
+        loki.append(fi)
+    I = Ideal(loki)
+    <span class="hljs-comment"># print(I)</span>
+    gb = I.groebner_basis()
+    <span class="hljs-keyword">return</span> gb[<span class="hljs-number">2</span>], gb[<span class="hljs-number">2</span>]-gb[<span class="hljs-number">0</span>].coefficients()[<span class="hljs-number">1</span>], gb[<span class="hljs-number">2</span>]-gb[<span class="hljs-number">1</span>].coefficients()[<span class="hljs-number">1</span>]
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    m = []
+    c = []
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">5</span>):
+        io = start()
+        rep = []
+        repair = []
+        <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">2</span>,<span class="hljs-number">300</span>):
+            resp = getparam(io, j)
+            <span class="hljs-keyword">if</span>(resp!=<span class="hljs-literal">False</span>):
+                <span class="hljs-comment"># print(&quot;hehe&quot;)</span>
+                rep.append(resp)
+                <span class="hljs-keyword">if</span>(<span class="hljs-built_in">len</span>(rep)==<span class="hljs-number">6</span>): 
+                    repair = calc_A(rep)
+                    <span class="hljs-keyword">break</span>
+        <span class="hljs-comment"># print(repair)</span>
+        E = Curve(<span class="hljs-built_in">int</span>(repair[<span class="hljs-number">1</span>]), <span class="hljs-built_in">int</span>(repair[<span class="hljs-number">2</span>]), <span class="hljs-built_in">int</span>(repair[<span class="hljs-number">0</span>]))
+        io.recvuntil(<span class="hljs-string">b&quot;&gt;&gt; &quot;</span>)
+        io.sendline(<span class="hljs-string">b&quot;2&quot;</span>)
+        io.recvuntil(<span class="hljs-string">b&#x27;Calculate &#x27;</span>)
+        k = <span class="hljs-built_in">int</span>(io.recvuntil(<span class="hljs-string">b&quot; &quot;</span>).decode().strip())
+        io.recvuntil(<span class="hljs-string">b&#x27;X &#x27;</span>)
+        pp = io.recvline().decode().strip()
+        <span class="hljs-comment"># print(pp)</span>
+        x = [<span class="hljs-built_in">int</span>(i) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> pp[<span class="hljs-number">1</span>:-<span class="hljs-number">1</span>].split(<span class="hljs-string">&quot;,&quot;</span>)]
+        P = (x[<span class="hljs-number">0</span>], x[<span class="hljs-number">1</span>])
+        <span class="hljs-comment"># print(P)</span>
+        poin = <span class="hljs-built_in">str</span>(E.power(P,k))
+        io.recvuntil(<span class="hljs-string">b&#x27;Answer: &#x27;</span>)
+        io.sendline(poin.encode())
+        mm = <span class="hljs-built_in">int</span>(io.recvline().decode().strip())
+        <span class="hljs-built_in">print</span>(mm)
+        m.append(<span class="hljs-built_in">int</span>(repair[<span class="hljs-number">0</span>]))
+        c.append(mm)
+        io.close()
+    roots = crt(m, c)[<span class="hljs-number">0</span>]
+    <span class="hljs-built_in">print</span>(roots)
+    flag = gmpy2.iroot(roots,<span class="hljs-number">3</span>)[<span class="hljs-number">0</span>]
+    flag = long_to_bytes(flag)
+    <span class="hljs-built_in">print</span>(flag)</code></pre></figure>
+<blockquote>
+<p>TCP1P{yet_another_ecrsa_challenge_smh_my_head}</p>
+</blockquote>
+<hr>
+
+        </article>
+      </div>
+    </main>
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <span>© 2026 Muhammad Faturrohman</span>
+        <span class="footer-mono">&lt;/&gt; add some code to this world</span>
+      </div>
+    </footer>
+  </body>
+</html>
