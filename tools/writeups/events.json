@@ -25,5 +25,20 @@
       "lattice",
       "ecdsa"
     ]
+  },
+  {
+    "slug": "tcp1pctf-2023",
+    "hackmd": "rkV5nQ5b6",
+    "event": "TCP1P CTF 2023",
+    "title": "TCP1P CTF 2023",
+    "date": "2023-10-16",
+    "summary": "RSA leaks via gcd, meet-in-the-middle on double AES, Mersenne Twister prediction, LFSR mask recovery, a CBC padding oracle and small-e RSA behind an ECC captcha.",
+    "tags": [
+      "crypto",
+      "rsa",
+      "aes",
+      "prng",
+      "lfsr"
+    ]
   }
 ]

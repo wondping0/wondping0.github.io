@@ -1,5 +1,12 @@
 [
   {
+    "slug": "tcp1pctf-2023",
+    "title": "TCP1P CTF 2023",
+    "event": "TCP1P CTF 2023",
+    "date": "2023-10-16",
+    "challenges": 7
+  },
+  {
     "slug": "compfest-15",
     "title": "COMPFEST 15 Quals",
     "event": "COMPFEST 15 · 2023",
