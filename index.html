@@ -44,6 +44,7 @@
           <a href="#projects">Projects</a>
           <a href="#research">Research</a>
           <a href="#ctf">CTF</a>
+          <a href="writeups/">Writeups</a>
           <a href="#contact">Contact</a>
         </nav>
         <a class="header-source" href="https://github.com/wondping0">GitHub <span aria-hidden="true">↗</span></a>
@@ -224,8 +225,58 @@
         </div>
       </section>
 
+      <section class="section wrap" id="writeups" aria-labelledby="writeups-title">
+        <div class="section-head reveal">
+          <p class="kicker">04 / WRITEUPS</p>
+          <h2 id="writeups-title">How the flags fell</h2>
+          <p class="section-sub">Full solvers from past competitions, mostly cryptography.</p>
+        </div>
+        <ul class="list">
+<!-- writeups:start -->
+          <li class="reveal">
+            <a href="writeups/acs-2023/">
+              <span class="list-name">ASEAN Cyber Shield 2023 Quals &amp; Finals</span>
+              <span class="list-desc">Both rounds: RSA with close exponents, fast Fibonacci by matrix power, homomorphic RSA, curve recovery in ecRSA, plus a finals reverse and web challenge.</span>
+              <span class="list-meta">8 solves <span aria-hidden="true">→</span></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a href="writeups/ncw-2023/">
+              <span class="list-name">National Cyber Week 2023 Quals</span>
+              <span class="list-desc">Recovering an AES-CFB8 key, a man-in-the-middle on Diffie–Hellman and a low-exponent attack on a double RSA scheme.</span>
+              <span class="list-meta">3 solves <span aria-hidden="true">→</span></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a href="writeups/tcp1pctf-2023/">
+              <span class="list-name">TCP1P CTF 2023</span>
+              <span class="list-desc">RSA leaks via gcd, meet-in-the-middle on double AES, Mersenne Twister prediction, LFSR mask recovery, a CBC padding oracle and small-e RSA behind an ECC captcha.</span>
+              <span class="list-meta">7 solves <span aria-hidden="true">→</span></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a href="writeups/compfest-15/">
+              <span class="list-name">COMPFEST 15 Quals</span>
+              <span class="list-desc">Recovering an RSA modulus with gcd then CRT, image encryption in a multiplicative group, a Merkle–Hellman knapsack broken with LLL and an ECDSA verifier bypass.</span>
+              <span class="list-meta">4 solves <span aria-hidden="true">→</span></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a href="writeups/hacktoday-2023/">
+              <span class="list-name">HackToday 2023 Quals</span>
+              <span class="list-desc">RSA with leaked d^e and φ^e plus Gaussian-integer factoring, an AES CBC/CFB oracle, a byte-by-byte unknown cipher and RSA with a tiny prime.</span>
+              <span class="list-meta">4 solves <span aria-hidden="true">→</span></span>
+            </a>
+          </li>
+<!-- writeups:end -->
+        </ul>
+        <div class="hero-actions reveal">
+          <a class="button button-ghost" href="writeups/">All writeups <span aria-hidden="true">→</span></a>
+        </div>
+      </section>
+
       <section class="section wrap contact reveal" id="contact" aria-labelledby="contact-title">
-        <p class="kicker">04 / CONTACT</p>
+        <p class="kicker">05 / CONTACT</p>
         <h2 id="contact-title">Got a cipher that needs breaking?</h2>
         <p class="section-sub">Open an issue on any repo, or find me on GitHub.</p>
         <div class="hero-actions">

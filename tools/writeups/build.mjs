@@ -216,3 +216,26 @@ writeFileSync(
   ) + "\n",
 );
 console.log(`writeups/index.html  ${built.length} events, ${total} challenges`);
+
+// Keep the landing page's writeups list in sync.
+const landingPath = join(site, "index.html");
+const landing = readFileSync(landingPath, "utf8");
+const rows = built
+  .map(
+    (ev) => `          <li class="reveal">
+            <a href="writeups/${ev.slug}/">
+              <span class="list-name">${esc(ev.title)}</span>
+              <span class="list-desc">${esc(ev.summary)}</span>
+              <span class="list-meta">${ev.challenges.length} solves <span aria-hidden="true">→</span></span>
+            </a>
+          </li>`,
+  )
+  .join("\n");
+const synced = landing.replace(
+  /<!-- writeups:start -->[\s\S]*?<!-- writeups:end -->/,
+  `<!-- writeups:start -->\n${rows}\n<!-- writeups:end -->`,
+);
+if (synced !== landing) {
+  writeFileSync(landingPath, synced);
+  console.log("index.html  writeups list synced");
+}
