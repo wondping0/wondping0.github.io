@@ -1,5 +1,12 @@
 [
   {
+    "slug": "compfest-15",
+    "title": "COMPFEST 15 Quals",
+    "event": "COMPFEST 15 · 2023",
+    "date": "2023-09-22",
+    "challenges": 4
+  },
+  {
     "slug": "hacktoday-2023",
     "title": "HackToday 2023 Quals",
     "event": "HackToday 2023 · IPB",
