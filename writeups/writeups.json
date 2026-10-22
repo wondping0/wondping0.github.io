@@ -1,5 +1,12 @@
 [
   {
+    "slug": "ncw-2023",
+    "title": "National Cyber Week 2023 Quals",
+    "event": "National Cyber Week 2023",
+    "date": "2023-11-20",
+    "challenges": 3
+  },
+  {
     "slug": "tcp1pctf-2023",
     "title": "TCP1P CTF 2023",
     "event": "TCP1P CTF 2023",

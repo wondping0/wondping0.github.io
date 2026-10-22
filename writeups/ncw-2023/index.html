@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050b18" />
+    <title>National Cyber Week 2023 Quals — wondping0 writeup</title>
+    <meta name="description" content="Recovering an AES-CFB8 key, a man-in-the-middle on Diffie–Hellman and a low-exponent attack on a double RSA scheme." />
+    <meta property="og:title" content="National Cyber Week 2023 Quals — wondping0 writeup" />
+    <meta property="og:description" content="Recovering an AES-CFB8 key, a man-in-the-middle on Diffie–Hellman and a low-exponent attack on a double RSA scheme." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wondping0.github.io/writeups/ncw-2023/" />
+    <meta property="og:image" content="https://wondping0.github.io/assets/avatar.jpg" />
+    <link rel="canonical" href="https://wondping0.github.io/writeups/ncw-2023/" />
+    <link rel="icon" href="/assets/favicon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/writeups/writeups.css" />
+    <script src="/writeups/writeups.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="backdrop" aria-hidden="true"></div>
+    <header class="header">
+      <div class="wrap header-inner">
+        <a class="brand" href="/" aria-label="wondping0 home">
+          <img src="/assets/avatar.webp" width="40" height="40" alt="" />
+          <span>wondping0<span class="brand-dot">_</span></span>
+        </a>
+        <nav class="nav" aria-label="Main navigation">
+          <a href="/#projects">Projects</a>
+          <a href="/#research">Research</a>
+          <a href="/writeups/" aria-current="page">Writeups</a>
+          <a href="/#contact">Contact</a>
+        </nav>
+        <a class="header-source" href="https://hackmd.io/@wondPing">HackMD <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="main" class="wrap writeup">
+      <div class="writeup-head">
+        <a class="back" href="/writeups/"><span aria-hidden="true">←</span> All writeups</a>
+        <p class="kicker">NATIONAL CYBER WEEK 2023 <span class="sep">/</span> 20 Nov 2023</p>
+        <h1>National Cyber Week 2023 Quals</h1>
+        <p class="section-sub">Recovering an AES-CFB8 key, a man-in-the-middle on Diffie–Hellman and a low-exponent attack on a double RSA scheme.</p>
+        <div class="tags"><span>crypto</span><span>aes</span><span>diffie-hellman</span><span>rsa</span><span>3 challenges</span></div>
+        <a class="project-link" href="https://hackmd.io/@wondPing/S1lsfbEOVp">Original on HackMD <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="writeup-grid">
+        <nav class="toc" aria-label="On this page">
+          <p class="toc-title">ON THIS PAGE</p>
+          <ol>
+            <li class="toc-2"><a href="#crypto">Crypto</a></li>
+            <li class="toc-3"><a href="#simple">Simple</a></li>
+            <li class="toc-3"><a href="#wangsaf">Wangsaf</a></li>
+            <li class="toc-3"><a href="#not-simple">Not Simple</a></li>
+          </ol>
+        </nav>
+        <article class="prose">
+<h2 id="crypto"><a class="anchor" href="#crypto" aria-hidden="true">#</a>Crypto</h2>
+<h3 id="simple"><a class="anchor" href="#simple" aria-hidden="true">#</a>Simple</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> string
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> secrets <span class="hljs-keyword">import</span> FLAG, enc
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">generate_random_string</span>(<span class="hljs-params">length</span>):
+    characters = string.ascii_letters + string.digits + string.punctuation
+    <span class="hljs-keyword">return</span> <span class="hljs-string">&#x27;&#x27;</span>.join(random.choice(characters) <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(length))
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">encrypt</span>(<span class="hljs-params">msg,key,iv</span>):
+<span class="hljs-comment">###############################################################################</span>
+<span class="hljs-comment">#                                                                             #</span>
+<span class="hljs-comment">#                    Haduh kena prank opo iki rek jadi ilang                  #</span>
+<span class="hljs-comment">#                   Seinget gw ini AES jg deh cm entah apa ini                #</span>
+<span class="hljs-comment">#                              Gudlak All!! :)                                #</span>
+<span class="hljs-comment">#                                                                             #</span>
+<span class="hljs-comment">###############################################################################</span>
+    <span class="hljs-keyword">return</span> enc.<span class="hljs-built_in">hex</span>()
+
+key = os.urandom(<span class="hljs-number">16</span>)
+iv1 = os.urandom(<span class="hljs-number">16</span>)
+iv2 = os.urandom(<span class="hljs-number">16</span>)
+plainkey = os.urandom(<span class="hljs-number">16</span>)
+
+enckey = encrypt(plainkey + os.urandom(<span class="hljs-number">16</span>), key, iv1)
+
+code = (<span class="hljs-string">&quot;Very simple, &quot;</span> + generate_random_string(random.randint(<span class="hljs-number">50</span>,<span class="hljs-number">60</span>))).encode()
+
+cipher = AES.new(plainkey + (os.urandom(<span class="hljs-number">2</span>)*<span class="hljs-number">8</span>),AES.MODE_CBC, iv2)
+
+enccode = cipher.encrypt(pad(code,<span class="hljs-number">16</span>))
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;enckey = <span class="hljs-subst">{enckey}</span>&#x27;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;enccode = <span class="hljs-subst">{enccode}</span>&#x27;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;iv2 = <span class="hljs-subst">{iv2}</span>&#x27;</span>)
+
+<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;&quot;&quot;      ========================================
+        1. Tes Enkripsi
+        2. Tebak kode
+        3. Exit
+        ============================================&quot;&quot;&quot;</span>)
+
+    choose = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;&gt;&gt; &quot;</span>)
+    <span class="hljs-keyword">if</span> choose == <span class="hljs-string">&quot;1&quot;</span>:
+        plaintext = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;Masukan pesan: &quot;</span>)
+        <span class="hljs-keyword">try</span>:
+            plaintext = <span class="hljs-built_in">bytes</span>.fromhex(plaintext)
+            ciphertext = encrypt(plaintext, key, iv1)
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;Ciphertext = <span class="hljs-subst">{ciphertext}</span>&#x27;</span>)
+        <span class="hljs-keyword">except</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;woila...&quot;</span>)
+
+    <span class="hljs-keyword">elif</span> choose == <span class="hljs-string">&quot;2&quot;</span>:
+        cobaan = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;Masukkan kode: &quot;</span>).encode()
+        <span class="hljs-keyword">if</span> cobaan == code:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;dahlah, <span class="hljs-subst">{FLAG}</span>&#x27;</span>)
+            exit(<span class="hljs-number">1</span>)
+        <span class="hljs-keyword">else</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;salah :(&quot;</span>)
+            exit(<span class="hljs-number">0</span>)
+
+    <span class="hljs-keyword">elif</span> choose == <span class="hljs-string">&quot;3&quot;</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Bye!&quot;</span>)
+        exit(<span class="hljs-number">1</span>)
+            
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;woi!&quot;</span>)
+        exit(<span class="hljs-number">0</span>)</code></pre></figure>
+<p>Diberikan sebuah program untuk menebak kode yang dienkripsi menggunakan AES-CBC dengan kunci plainkey+<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>o</mi><mi>s</mi><mi mathvariant="normal">.</mi><mi>u</mi><mi>r</mi><mi>a</mi><mi>n</mi><mi>d</mi><mi>o</mi><mi>m</mi><mo stretchy="false">(</mo><mn>2</mn><mo stretchy="false">)</mo><mo>∗</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">os.urandom(2)*8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">os</span><span class="mord">.</span><span class="mord mathnormal">u</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord mathnormal">an</span><span class="mord mathnormal">d</span><span class="mord mathnormal">o</span><span class="mord mathnormal">m</span><span class="mopen">(</span><span class="mord">2</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∗</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">8</span></span></span></span>. Kemudian plainkey dilakukan enkripsi dengan AES yang tidak diketahui modenya. Oleh karena itu, saya mencoba menganalisis untuk testing enkripsi dari mode AES kedua.
+<img src="https://hackmd.io/_uploads/r1wp8N_Ep.jpg" alt="bukti1" loading="lazy" decoding="async" />
+Dari beberapa percobaan saya mendapatkan kesimpulan pada AES tersebut tidak harus 16 bytes. Selain itu ketika melakukan <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mi>o</mi><mi>r</mi><mo stretchy="false">(</mo><mi>p</mi><mi>l</mi><mi>a</mi><mi>i</mi><mi>n</mi><mi>t</mi><mi>e</mi><mi>x</mi><mi>t</mi><mo separator="true">,</mo><mi>c</mi><mi>i</mi><mi>p</mi><mi>h</mi><mi>e</mi><mi>r</mi><mi>t</mi><mi>e</mi><mi>x</mi><mi>t</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">xor(plaintext, ciphertext)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">x</span><span class="mord mathnormal" style="margin-right:0.0278em;">or</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0197em;">pl</span><span class="mord mathnormal">ain</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal">x</span><span class="mord mathnormal">t</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">c</span><span class="mord mathnormal">i</span><span class="mord mathnormal">p</span><span class="mord mathnormal">h</span><span class="mord mathnormal" style="margin-right:0.0278em;">er</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal">x</span><span class="mord mathnormal">t</span><span class="mclose">)</span></span></span></span> untuk bytes pertama akan menghasilkan nilai yang sama untuk kunci yang sama. Dari hal tersebut dapat saya simpulkan mode yang digunakan adalah CFB-8 yang melakukan operasi per-bytes. Kemudian untuk melakukan recover plainkey tinggal menggunakan Differential Crypanalysis masing-masing output dari menu 1. 
+Setelah didapatkan nilai plainkey dimungkinkan untuk menebak nilai dari Kode karena kunci dari AES-CBC bisa dilakukan bruteforce sebanyak <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mn>2</mn><mo>∗</mo><mo>∗</mo><mn>16</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(2**16)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">2</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∗</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">∗</span><span class="mord">16</span><span class="mclose">)</span></span></span></span> yaitu nilai dari <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>o</mi><mi>s</mi><mi mathvariant="normal">.</mi><mi>u</mi><mi>r</mi><mi>a</mi><mi>n</mi><mi>d</mi><mi>o</mi><mi>m</mi><mo stretchy="false">(</mo><mn>2</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">os.urandom(2)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">os</span><span class="mord">.</span><span class="mord mathnormal">u</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord mathnormal">an</span><span class="mord mathnormal">d</span><span class="mord mathnormal">o</span><span class="mord mathnormal">m</span><span class="mopen">(</span><span class="mord">2</span><span class="mclose">)</span></span></span></span>.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> long_to_bytes
+<span class="hljs-keyword">import</span> string
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> *
+
+characters = (string.ascii_letters + string.digits + string.punctuation).encode()
+
+io = remote(<span class="hljs-string">&quot;103.145.226.209&quot;</span>,<span class="hljs-string">&quot;1945&quot;</span>)
+io.recvuntil(<span class="hljs-string">b&#x27;enckey = &#x27;</span>)
+hfile = io.recvline().decode().strip()
+<span class="hljs-built_in">print</span>(hfile)
+enckey = <span class="hljs-built_in">bytes</span>.fromhex(hfile)
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;cred.py&quot;</span>,<span class="hljs-string">&quot;w&quot;</span>) <span class="hljs-keyword">as</span> f:
+    f.write(io.recvline().decode())
+    f.write(io.recvline().decode())
+
+<span class="hljs-keyword">from</span> cred <span class="hljs-keyword">import</span> enccode, iv2
+<span class="hljs-built_in">print</span>(enccode, iv2)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">sendX</span>(<span class="hljs-params">data</span>):
+    io.recvuntil(<span class="hljs-string">b&#x27;&gt;&gt; &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;1&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&#x27; pesan: &#x27;</span>)
+    io.sendline(data.<span class="hljs-built_in">hex</span>().encode())
+    io.recvuntil(<span class="hljs-string">b&#x27;rtext = &#x27;</span>)
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">bytes</span>.fromhex(io.recvline().decode().strip())
+
+ft = <span class="hljs-string">b&#x27;&#x27;</span>
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">32</span>):
+    <span class="hljs-keyword">for</span> chs <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>):
+        mb = ft+long_to_bytes(chs)
+        dat = sendX(mb)
+        <span class="hljs-comment"># print(enckey[i])</span>
+        <span class="hljs-keyword">if</span>(dat[i]==enckey[i]):
+            ft += long_to_bytes(chs)
+            <span class="hljs-built_in">print</span>(ft)
+            <span class="hljs-keyword">break</span>
+
+<span class="hljs-built_in">print</span>(ft)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Starting Brute&quot;</span>)
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>):
+    <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>):
+        ch = long_to_bytes(i)+long_to_bytes(j)
+        crs = ft[:<span class="hljs-number">16</span>]+ch*<span class="hljs-number">8</span>
+        cipher = AES.new(crs ,AES.MODE_CBC, iv2)
+        ftr = cipher.decrypt(enccode)
+        <span class="hljs-keyword">if</span>(<span class="hljs-string">b&#x27;simple&#x27;</span> <span class="hljs-keyword">in</span> ftr):
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;FOUND!!&quot;</span>)
+            kode = unpad(ftr,<span class="hljs-number">16</span>)
+            io.recvuntil(<span class="hljs-string">b&quot;&gt;&gt; &quot;</span>)
+            io.sendline(<span class="hljs-string">b&#x27;2&#x27;</span>)
+            io.recvuntil(<span class="hljs-string">b&#x27;kode: &#x27;</span>)
+            io.sendline(kode)
+            flag = io.recvline()
+            <span class="hljs-built_in">print</span>(flag)
+            <span class="hljs-keyword">break</span></code></pre></figure>
+<p><img src="https://hackmd.io/_uploads/H1J9UVuVa.jpg" alt="ss" loading="lazy" decoding="async" /></p>
+<blockquote>
+<p>NCW23{kenapa_bocor_lagi_yak_keynya?_yang_penting_soalnya_simple_dah}</p>
+</blockquote>
+<h3 id="wangsaf"><a class="anchor" href="#wangsaf" aria-hidden="true">#</a>Wangsaf</h3>
+<p>Diberikan beberapa source code yang terdiri dari client, server, dan attacker. Service yang ada merupakan hasil running dari sisi attacker.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># attacker.py</span>
+<span class="hljs-keyword">import</span> socket
+<span class="hljs-keyword">import</span> threading
+<span class="hljs-keyword">import</span> os
+
+SERVER_SOCK = <span class="hljs-string">&quot;/tmp/server&quot;</span>
+ATTACKER_SOCK = <span class="hljs-string">&quot;/tmp/attacker&quot;</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Attacker</span>:
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">handle_client</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-keyword">try</span>:
+			<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+				client_data = <span class="hljs-variable language_">self</span>.client_socket.recv(<span class="hljs-number">4096</span>)
+				<span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> client_data:
+					<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;disconnected&#x27;</span>)
+					exit()
+				<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;client:&#x27;</span>, client_data.decode())
+				client_to_server = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;client (tamper): &quot;</span>).encode()
+				<span class="hljs-keyword">if</span> client_to_server == <span class="hljs-string">b&quot;fw&quot;</span>: <span class="hljs-comment">#forward message</span>
+					client_to_server = client_data
+				<span class="hljs-variable language_">self</span>.server_socket.sendall(client_to_server)
+			<span class="hljs-variable language_">self</span>.attacker_socket.close()
+		<span class="hljs-keyword">except</span>:
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;something&#x27;s wrong&quot;</span>)
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">handle_server</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-keyword">try</span>:
+			<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+				server_data = <span class="hljs-variable language_">self</span>.server_socket.recv(<span class="hljs-number">4096</span>)
+				<span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> server_data:
+					<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;disconnected&#x27;</span>)
+					exit()
+				<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;server:&#x27;</span>, server_data.decode())
+				server_to_client = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;server (tamper): &quot;</span>).encode()
+				<span class="hljs-keyword">if</span> server_to_client == <span class="hljs-string">b&quot;fw&quot;</span>: <span class="hljs-comment">#forward message</span>
+					server_to_client = server_data
+				<span class="hljs-variable language_">self</span>.client_socket.sendall(server_to_client)
+			<span class="hljs-variable language_">self</span>.attacker_socket.close()
+		<span class="hljs-keyword">except</span>:
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;something&#x27;s wrong&quot;</span>)
+	
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">handle_incoming</span>(<span class="hljs-params">self</span>):
+		server_thread = threading.Thread(target=<span class="hljs-variable language_">self</span>.handle_server)
+		server_thread.start()
+
+		client_thread = threading.Thread(target=<span class="hljs-variable language_">self</span>.handle_client)
+		client_thread.start()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-keyword">try</span>:
+			os.remove(ATTACKER_SOCK)
+		<span class="hljs-keyword">except</span> OSError:
+			<span class="hljs-keyword">pass</span>
+		<span class="hljs-keyword">try</span>:
+			attacker_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+			attacker_socket.bind(ATTACKER_SOCK)
+			attacker_socket.listen(<span class="hljs-number">1</span>)
+		
+			<span class="hljs-variable language_">self</span>.client_socket, client_addr = attacker_socket.accept()
+		
+			<span class="hljs-variable language_">self</span>.server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+			<span class="hljs-variable language_">self</span>.server_socket.connect(SERVER_SOCK)
+			
+			<span class="hljs-variable language_">self</span>.handle_incoming()
+		<span class="hljs-keyword">except</span>:
+			<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;something&#x27;s wrong&quot;</span>)
+
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&#x27;__main__&#x27;</span>:
+	attacker = Attacker()
+	attacker.main()
+</code></pre></figure>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># server.py</span>
+<span class="hljs-keyword">import</span> socket, threading
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> base64
+<span class="hljs-keyword">from</span> cryptography.hazmat.primitives.ciphers <span class="hljs-keyword">import</span> Cipher, algorithms, modes
+<span class="hljs-keyword">from</span> cryptography.hazmat.primitives.asymmetric <span class="hljs-keyword">import</span> rsa, dh
+<span class="hljs-keyword">from</span> cryptography.hazmat.primitives <span class="hljs-keyword">import</span> serialization, hashes, padding
+<span class="hljs-keyword">from</span> cryptography.hazmat.backends <span class="hljs-keyword">import</span> default_backend
+<span class="hljs-keyword">from</span> cryptography.hazmat.primitives.kdf.hkdf <span class="hljs-keyword">import</span> HKDF
+<span class="hljs-keyword">import</span> time
+<span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">from</span> server_messages <span class="hljs-keyword">import</span> server_messages
+
+SERVER_SOCK = <span class="hljs-string">&quot;/tmp/server&quot;</span>
+
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Server</span>:
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self</span>):
+		SERVER_HOST = <span class="hljs-string">&#x27;127.0.0.1&#x27;</span>
+		SERVER_PORT = <span class="hljs-number">12345</span>
+		<span class="hljs-keyword">try</span>:
+			os.remove(SERVER_SOCK)
+		<span class="hljs-keyword">except</span> OSError:
+			<span class="hljs-keyword">pass</span>
+		<span class="hljs-variable language_">self</span>.server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+		<span class="hljs-variable language_">self</span>.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, <span class="hljs-number">1</span>)
+		<span class="hljs-variable language_">self</span>.server_socket.bind(SERVER_SOCK)
+		<span class="hljs-variable language_">self</span>.server_socket.listen(<span class="hljs-number">1</span>)
+
+		<span class="hljs-variable language_">self</span>.client_socket, <span class="hljs-variable language_">self</span>.client_addr = <span class="hljs-variable language_">self</span>.server_socket.accept()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">generateKey</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-variable language_">self</span>.loadparam()
+		<span class="hljs-variable language_">self</span>.private_key = <span class="hljs-variable language_">self</span>.parameters.generate_private_key()
+		<span class="hljs-variable language_">self</span>.public_key = <span class="hljs-variable language_">self</span>.private_key.public_key()
+
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">deriveKey</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-variable language_">self</span>.derived_key = HKDF(
+			algorithm=hashes.SHA256(),
+			length=<span class="hljs-number">32</span>,
+			salt=<span class="hljs-literal">None</span>,
+			info=<span class="hljs-string">b&#x27;handshake data&#x27;</span>,
+		).derive(<span class="hljs-variable language_">self</span>.shared_key)
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">sendparam</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-variable language_">self</span>.serialized_parameters = <span class="hljs-variable language_">self</span>.parameters.parameter_bytes(serialization.Encoding.PEM, serialization.ParameterFormat.PKCS3)
+		<span class="hljs-variable language_">self</span>.send(<span class="hljs-string">b&quot;PARM||&quot;</span> + <span class="hljs-variable language_">self</span>.serialized_parameters.<span class="hljs-built_in">hex</span>().encode())
+		responseData = <span class="hljs-variable language_">self</span>.receive()
+		<span class="hljs-keyword">if</span> <span class="hljs-string">b&quot;PARM_ACC&quot;</span> <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> responseData:
+			<span class="hljs-variable language_">self</span>.server_socket.close()
+			<span class="hljs-variable language_">self</span>.client_socket.close()
+			exit()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">loadparam</span>(<span class="hljs-params">self</span>):
+		responseData = <span class="hljs-variable language_">self</span>.client_socket.recv(<span class="hljs-number">1024</span>)
+		<span class="hljs-keyword">if</span> <span class="hljs-string">b&quot;PARM||&quot;</span> <span class="hljs-keyword">in</span> responseData[:<span class="hljs-number">6</span>]:
+			<span class="hljs-variable language_">self</span>.parameters = serialization.load_pem_parameters(<span class="hljs-built_in">bytes</span>.fromhex(responseData[<span class="hljs-number">6</span>:].decode()))
+			<span class="hljs-variable language_">self</span>.send(<span class="hljs-string">b&quot;PARM_ACC&quot;</span>)
+		<span class="hljs-keyword">else</span>:
+			<span class="hljs-variable language_">self</span>.server_socket.close()
+			<span class="hljs-variable language_">self</span>.client_socket.close()
+			exit()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">keyExchange</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-variable language_">self</span>.recvpubkey()
+		<span class="hljs-variable language_">self</span>.sendpubkey()
+		<span class="hljs-variable language_">self</span>.deriveKey()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">sendpubkey</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-variable language_">self</span>.serialized_public_key = <span class="hljs-variable language_">self</span>.public_key.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+		<span class="hljs-variable language_">self</span>.send(<span class="hljs-string">b&quot;PUBK||&quot;</span> + <span class="hljs-variable language_">self</span>.serialized_public_key.<span class="hljs-built_in">hex</span>().encode())
+		responseData = <span class="hljs-variable language_">self</span>.receive()
+		<span class="hljs-keyword">if</span> <span class="hljs-string">b&quot;PUBK_ACC&quot;</span> <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> responseData:
+			<span class="hljs-variable language_">self</span>.server_socket.close()
+			<span class="hljs-variable language_">self</span>.client_socket.close()
+			exit()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">recvpubkey</span>(<span class="hljs-params">self</span>):
+		responseData = <span class="hljs-variable language_">self</span>.receive()
+		<span class="hljs-keyword">if</span> <span class="hljs-string">b&quot;PUBK||&quot;</span> <span class="hljs-keyword">in</span> responseData[:<span class="hljs-number">6</span>]:
+			<span class="hljs-variable language_">self</span>.holder_public_key = serialization.load_pem_public_key(
+				<span class="hljs-built_in">bytes</span>.fromhex(responseData[<span class="hljs-number">6</span>:].decode()),
+				backend=default_backend(),
+			)
+			<span class="hljs-variable language_">self</span>.shared_key = <span class="hljs-variable language_">self</span>.private_key.exchange(<span class="hljs-variable language_">self</span>.holder_public_key)
+			<span class="hljs-variable language_">self</span>.send(<span class="hljs-string">b&quot;PUBK_ACC&quot;</span>)
+		<span class="hljs-keyword">else</span>:
+			<span class="hljs-variable language_">self</span>.server_socket.close()
+			<span class="hljs-variable language_">self</span>.client_socket.close()
+			exit()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">initialization</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-variable language_">self</span>.hello()
+		<span class="hljs-variable language_">self</span>.generateKey()
+		<span class="hljs-variable language_">self</span>.keyExchange()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">hello</span>(<span class="hljs-params">self</span>):
+		response = <span class="hljs-variable language_">self</span>.receive()
+		<span class="hljs-keyword">if</span> response == <span class="hljs-string">b&#x27;hello!&#x27;</span>:
+			<span class="hljs-variable language_">self</span>.send(<span class="hljs-string">b&#x27;hello!&#x27;</span>)
+			<span class="hljs-keyword">return</span>
+		<span class="hljs-keyword">else</span>:
+			<span class="hljs-variable language_">self</span>.server_socket.close()
+			<span class="hljs-variable language_">self</span>.client_socket.close()
+			exit()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-variable language_">self</span>.initialization()
+		<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+			<span class="hljs-variable language_">self</span>.recvmessage()
+			<span class="hljs-variable language_">self</span>.sendmessage()
+
+		<span class="hljs-variable language_">self</span>.server_socket.close()
+		<span class="hljs-variable language_">self</span>.client_socket.close()
+		exit()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">encrypt</span>(<span class="hljs-params">self, message</span>):
+		iv = os.urandom(<span class="hljs-number">16</span>)
+		cipher = Cipher(algorithms.AES(<span class="hljs-variable language_">self</span>.derived_key), modes.CBC(iv), backend=default_backend())
+		encryptor = cipher.encryptor()
+
+		padder = padding.PKCS7(algorithms.AES.block_size).padder()
+		padded_message = padder.update(message.encode()) + padder.finalize()
+
+		ciphertext = iv + encryptor.update(padded_message) + encryptor.finalize()
+		<span class="hljs-keyword">return</span> base64.b64encode(ciphertext)
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">decrypt</span>(<span class="hljs-params">self, message</span>):
+		message = base64.b64decode(message)
+		iv = message[:<span class="hljs-number">16</span>]
+		message = message[<span class="hljs-number">16</span>:]
+		cipher = Cipher(algorithms.AES(<span class="hljs-variable language_">self</span>.derived_key), modes.CBC(iv), backend=default_backend())
+		decryptor = cipher.decryptor()
+		plaintext = decryptor.update(message) + decryptor.finalize()
+
+		unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+
+		unpadded_message = unpadder.update(plaintext) + unpadder.finalize()
+
+		<span class="hljs-keyword">return</span> unpadded_message
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">send</span>(<span class="hljs-params">self, message</span>):
+		time.sleep(<span class="hljs-number">1</span>)
+		<span class="hljs-variable language_">self</span>.client_socket.sendall(message)
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">sendmessage</span>(<span class="hljs-params">self</span>):
+		message = random.choice(server_messages)
+		data = <span class="hljs-variable language_">self</span>.encrypt(message)
+		<span class="hljs-variable language_">self</span>.send(data)
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">receive</span>(<span class="hljs-params">self</span>):
+		response = <span class="hljs-variable language_">self</span>.client_socket.recv(<span class="hljs-number">4096</span>)
+		<span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> response:
+			<span class="hljs-variable language_">self</span>.server_socket.close()
+			<span class="hljs-variable language_">self</span>.client_socket.close()
+			exit()
+		<span class="hljs-keyword">return</span> response
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">recvmessage</span>(<span class="hljs-params">self</span>):
+		<span class="hljs-keyword">try</span>:
+			response = <span class="hljs-variable language_">self</span>.receive()
+			data = <span class="hljs-variable language_">self</span>.decrypt(response).decode()
+			<span class="hljs-variable language_">self</span>.checkflag(data)
+		<span class="hljs-keyword">except</span>:
+			<span class="hljs-variable language_">self</span>.server_socket.close()
+			<span class="hljs-variable language_">self</span>.client_socket.close()
+			exit()
+
+	<span class="hljs-keyword">def</span> <span class="hljs-title function_">checkflag</span>(<span class="hljs-params">self, message</span>):
+		<span class="hljs-keyword">if</span> message == <span class="hljs-string">&quot;giv me the flag you damn donut&quot;</span>:
+			flag = <span class="hljs-string">&quot;NCW23{REDACTED}&quot;</span>
+			data = <span class="hljs-variable language_">self</span>.encrypt(flag)
+			<span class="hljs-variable language_">self</span>.send(data)
+			exit()
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&#x27;__main__&#x27;</span>:
+	server = Server()
+	server.main()
+</code></pre></figure>
+<p>Antara server dan client, mereka melakukan pertukaran pesan yang dienkripsi menggunakan AES dengan dengan secret sharing key dengan Diffie Hellman. Untuk pihak yang memiliki FLAG yaitu pada server yang diharuskan client mengirimkan pesan &quot;giv me the flag you damn donut&quot;. Pada source code attacker kita bisa melihat dan memodifikasi data yang nantinya dikirim ke server. Hal ini merupakan bentuk serangan dari Man In The Middle Attack pada skema Diffie Hellman. Oleh karena itu, langsung saja sebagai attacker kita menggantikan posisi client dan menggenerate kunci sendiri dan berinteraksi dengan server untuk mendapatkan flag. </p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> base64
+<span class="hljs-keyword">from</span> cryptography.hazmat.primitives.ciphers <span class="hljs-keyword">import</span> Cipher, algorithms, modes
+<span class="hljs-keyword">from</span> cryptography.hazmat.primitives.asymmetric <span class="hljs-keyword">import</span> rsa, dh
+<span class="hljs-keyword">from</span> cryptography.hazmat.primitives <span class="hljs-keyword">import</span> serialization, hashes, padding
+<span class="hljs-keyword">from</span> cryptography.hazmat.backends <span class="hljs-keyword">import</span> default_backend
+<span class="hljs-keyword">from</span> cryptography.hazmat.primitives.kdf.hkdf <span class="hljs-keyword">import</span> HKDF
+<span class="hljs-keyword">import</span> random
+
+io = remote(<span class="hljs-string">&quot;103.145.226.209&quot;</span>,<span class="hljs-string">&quot;1965&quot;</span>)
+<span class="hljs-comment"># io.interactive()</span>
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">recc</span>():
+    io.recvuntil(<span class="hljs-string">b&#x27;(tamper): &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&quot;fw&quot;</span>)
+    <span class="hljs-keyword">return</span> io.recvline().decode().strip()
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">recc2</span>(<span class="hljs-params">data</span>):
+    io.recvuntil(<span class="hljs-string">b&#x27;(tamper): &#x27;</span>)
+    io.sendline(data)
+    <span class="hljs-keyword">return</span> io.recvline().decode().strip()
+
+datas = []
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">4</span>):
+    datas.append(recc())
+parms = serialization.load_pem_parameters(<span class="hljs-built_in">bytes</span>.fromhex(datas[<span class="hljs-number">1</span>][<span class="hljs-number">8</span>:][<span class="hljs-number">6</span>:]))
+private_key = parms.generate_private_key()
+public_key = private_key.public_key()
+serialized_public_key = public_key.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+sksend = <span class="hljs-string">b&quot;PUBK||&quot;</span> + serialized_public_key.<span class="hljs-built_in">hex</span>().encode()
+rt = recc2(sksend)
+
+datas.append(rt)
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">2</span>):
+    datas.append(recc())
+
+<span class="hljs-built_in">print</span>(datas)
+pubkClient = datas[-<span class="hljs-number">2</span>][<span class="hljs-number">8</span>:]
+holder_public_key = serialization.load_pem_public_key(
+    <span class="hljs-built_in">bytes</span>.fromhex(pubkClient[<span class="hljs-number">6</span>:]),
+    backend=default_backend(),
+)
+shared_key = private_key.exchange(holder_public_key)
+<span class="hljs-built_in">print</span>(shared_key)
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">deriveKey</span>(<span class="hljs-params">shared_key</span>):
+    <span class="hljs-keyword">return</span> HKDF(
+        algorithm=hashes.SHA256(),
+        length=<span class="hljs-number">32</span>,
+        salt=<span class="hljs-literal">None</span>,
+        info=<span class="hljs-string">b&#x27;handshake data&#x27;</span>,
+    ).derive(shared_key)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">decrypt</span>(<span class="hljs-params">message, derived_key</span>):
+    message = base64.b64decode(message)
+    iv = message[:<span class="hljs-number">16</span>]
+    message = message[<span class="hljs-number">16</span>:]
+    cipher = Cipher(algorithms.AES(derived_key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    plaintext = decryptor.update(message) + decryptor.finalize()
+
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+
+    unpadded_message = unpadder.update(plaintext) + unpadder.finalize()
+
+    <span class="hljs-keyword">return</span> unpadded_message
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">encrypt</span>(<span class="hljs-params">message, derived_key</span>):
+    iv = os.urandom(<span class="hljs-number">16</span>)
+    cipher = Cipher(algorithms.AES(derived_key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_message = padder.update(message.encode()) + padder.finalize()
+
+    ciphertext = iv + encryptor.update(padded_message) + encryptor.finalize()
+    <span class="hljs-keyword">return</span> base64.b64encode(ciphertext)
+
+message = <span class="hljs-string">&quot;giv me the flag you damn donut&quot;</span>
+dk = deriveKey(shared_key)
+ciphert = encrypt(message, dk)
+encs = []
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>):
+    hasil = recc()
+<span class="hljs-built_in">print</span>(ciphert)
+rt = recc2(ciphert)[<span class="hljs-number">8</span>:]
+<span class="hljs-built_in">print</span>(rt)
+encs = [rt]
+<span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> encs:
+    <span class="hljs-built_in">print</span>(decrypt(k, dk))</code></pre></figure>
+<p><img src="https://hackmd.io/_uploads/Skn7_NO4a.jpg" alt="ss" loading="lazy" decoding="async" /></p>
+<blockquote>
+<p>NCW23{bro_pikir_dia_sesungguhnya_adalah_whitfield_diffie_dan_martin_hellman}</p>
+</blockquote>
+<h3 id="not-simple"><a class="anchor" href="#not-simple" aria-hidden="true">#</a>Not Simple</h3>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> string
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">import</span> time
+<span class="hljs-keyword">from</span> secrets <span class="hljs-keyword">import</span> FLAG
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">generate_random_string</span>(<span class="hljs-params">length</span>):
+    characters = string.ascii_letters + string.digits + string.punctuation
+    <span class="hljs-keyword">return</span> <span class="hljs-string">&#x27;&#x27;</span>.join(random.choice(characters) <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(length))
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">enc1</span>(<span class="hljs-params">kode</span>):
+    m = bytes_to_long(kode.encode())
+    p,q = getPrime(<span class="hljs-number">600</span>),getPrime(<span class="hljs-number">600</span>)
+    n = p*q
+    opr1 = inverse(<span class="hljs-built_in">pow</span>(p,<span class="hljs-number">5</span>),q)
+    opr2 = (<span class="hljs-built_in">pow</span>(p,<span class="hljs-number">7</span>,n) - <span class="hljs-built_in">pow</span>(q,<span class="hljs-number">65537</span>,n)) % n
+    c = <span class="hljs-built_in">pow</span>((<span class="hljs-built_in">pow</span>(opr1 * m * opr2, <span class="hljs-number">65537</span>, n) * <span class="hljs-built_in">pow</span>(inverse(opr1,n),<span class="hljs-number">2</span>,n) * <span class="hljs-built_in">pow</span>(inverse(opr2, n),<span class="hljs-number">3</span>,n)) % n,<span class="hljs-number">3</span>,n)
+    <span class="hljs-keyword">return</span> n,<span class="hljs-number">65537</span>,opr1,opr2,c
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">wow</span>():
+    wow = [random.getrandbits(<span class="hljs-number">32</span>) &lt;&lt; (<span class="hljs-number">128</span>*<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>,i)) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>)]
+    wadidaw = <span class="hljs-number">0</span>
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> wow:
+        wadidaw |= i
+    <span class="hljs-keyword">return</span> wadidaw
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">enc2</span>(<span class="hljs-params">opr1,opr2,e,p,q</span>):
+    n = p*q
+    c = <span class="hljs-built_in">pow</span>(bytes_to_long(long_to_bytes(opr1) + <span class="hljs-string">b&#x27;bebek&#x27;</span> + long_to_bytes(opr2)) + wow(), e, n)
+    <span class="hljs-keyword">return</span> c,n,e
+
+kode = generate_random_string(<span class="hljs-number">50</span>)
+n1,e1,opr1,opr2,c1 = enc1(kode)
+
+e = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;Masukkan e = &quot;</span>)
+foul = <span class="hljs-number">0</span>
+<span class="hljs-keyword">while</span> e.isdigit() == <span class="hljs-number">0</span> <span class="hljs-keyword">or</span> <span class="hljs-built_in">int</span>(e) % <span class="hljs-number">2</span> == <span class="hljs-number">0</span> <span class="hljs-keyword">or</span> <span class="hljs-built_in">int</span>(e) &lt;= <span class="hljs-number">13</span>:
+    foul += <span class="hljs-number">1</span>
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Masukkan lagi&quot;</span>)
+    e = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;Masukkan e = &quot;</span>)
+    <span class="hljs-keyword">if</span>(foul == <span class="hljs-number">3</span>):
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Males sayah..&quot;</span>)
+        exit(<span class="hljs-number">0</span>)
+
+
+p,q = getPrime(<span class="hljs-number">1024</span>),getPrime(<span class="hljs-number">1024</span>)
+e = <span class="hljs-built_in">int</span>(e)
+
+<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;&quot;&quot;
+         1. Liat nilai wadidaw
+         2. Melihat enkripsi dari kode1 dan kode2
+         3. Input kode1 and kode2
+         4. Exit
+          &quot;&quot;&quot;</span>)
+    choose = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;&gt;&gt; &quot;</span>)
+    <span class="hljs-keyword">if</span> choose == <span class="hljs-string">&quot;1&quot;</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;Nilai wadidaw = <span class="hljs-subst">{<span class="hljs-built_in">hex</span>(wow())}</span>&#x27;</span>)
+    <span class="hljs-keyword">elif</span> choose == <span class="hljs-string">&quot;2&quot;</span>:
+        c2,n2,e2 = enc2(opr1,opr2,e,p,q)
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;c = <span class="hljs-subst">{c2}</span>&#x27;</span>)
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;n = <span class="hljs-subst">{n2}</span>&#x27;</span>)
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;e = <span class="hljs-subst">{e2}</span>&#x27;</span>)
+    <span class="hljs-keyword">elif</span> choose == <span class="hljs-string">&quot;3&quot;</span>:
+        init = time.time()
+        cobaopr1 = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;opr1 = &quot;</span>)
+        cobaopr2 = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;opr2 = &quot;</span>)
+        <span class="hljs-keyword">try</span>:
+            <span class="hljs-keyword">if</span> (time.time() - init &gt; <span class="hljs-number">15</span>):
+                <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;waktu anda kelamaan <span class="hljs-subst">{time.time() - init}</span>&quot;</span>)
+                exit()
+            <span class="hljs-keyword">elif</span> <span class="hljs-built_in">int</span>(cobaopr1) == opr1 <span class="hljs-keyword">and</span> <span class="hljs-built_in">int</span>(cobaopr2) == opr2:
+                <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Nice, skarang lagi satu tebak kode berikut&quot;</span>)
+                <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;n = <span class="hljs-subst">{n1}</span>&#x27;</span>)
+                <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;e = <span class="hljs-subst">{e1}</span>&#x27;</span>)
+                <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;c = <span class="hljs-subst">{c1}</span>&#x27;</span>)
+                cobakode = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;Kode = &quot;</span>)
+                <span class="hljs-keyword">if</span> (time.time() - init &gt; <span class="hljs-number">15</span>):
+                    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;waktu anda kelamaan <span class="hljs-subst">{time.time() - init}</span>&quot;</span>)
+                    exit()
+                <span class="hljs-keyword">elif</span> cobakode == kode:
+                    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Dahlah, gw dah capek <span class="hljs-subst">{FLAG}</span>&quot;</span>)
+                <span class="hljs-keyword">else</span>:
+                    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Nope&quot;</span>)
+                    exit()
+            <span class="hljs-keyword">else</span>:
+                <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Nope&quot;</span>)
+                exit()
+        <span class="hljs-keyword">except</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Nope&quot;</span>)
+            exit()
+    <span class="hljs-keyword">elif</span> choose == <span class="hljs-string">&quot;4&quot;</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;bye!!&quot;</span>)
+        exit()
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;We..&quot;</span>)
+        exit()</code></pre></figure>
+<p>Diberikan double skema RSA yang memiliki beberapa fitur. Penjelasan Fitur:</p>
+<ol>
+<li>Nilai e bisa diatur dengan syarat bukan genap dan lebih dari 13</li>
+<li>Bisa melakukan banyak request pada menu 1 dan menu 2</li>
+<li>Nilai wadidaw bisa disebut wow dibangkitkan secara random dengan module random</li>
+<li>Flow mendapatkan Flag dengan menebak nilai secret code yang dienkrip dengan RSA kedua, namun sebelum itu harus menebak secret key (opr1 dan opr2) RSA pertama.</li>
+<li>Secret key (opr1 dan opr2) merupakan leak information dari RSA pertama</li>
+</ol>
+<p>Dari beberapa fitur tersebut kita bisa menganalisis karena fitur 1 skema tersebut memiliki kerentanan Low Exponent Public Key. Kemudian, karena fitur 2 dan 3 dimungkinkan nilai wow dilakukan predict karenan menggunakan Pseudo Random Mersenne Twister Algorithm. Adanya fitur 2 dan kerentanan Low Exponent Public Key untuk merecover secret key (opr1 dan opr2) dapat menggunakan Franklin Reiter Attack. 
+Persamaan yang digunakan:
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>f</mi><mn>1</mn><mo>=</mo><mo stretchy="false">(</mo><mi>X</mi><mo>+</mo><mi>W</mi><mi>O</mi><mi>W</mi><mn>1</mn><msup><mo stretchy="false">)</mo><mi>e</mi></msup><mo>−</mo><mi>c</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">f1=(X+WOW1)^e-c1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mord">1</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">W</span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mord mathnormal" style="margin-right:0.1389em;">W</span><span class="mord">1</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7144em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">e</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord mathnormal">c</span><span class="mord">1</span></span></span></span></span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>f</mi><mn>2</mn><mo>=</mo><mo stretchy="false">(</mo><mi>X</mi><mo>+</mo><mi>W</mi><mi>O</mi><mi>W</mi><mn>2</mn><msup><mo stretchy="false">)</mo><mi>e</mi></msup><mo>−</mo><mi>c</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">f2=(X+WOW2)^e-c2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mord">2</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">W</span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mord mathnormal" style="margin-right:0.1389em;">W</span><span class="mord">2</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7144em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">e</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord mathnormal">c</span><span class="mord">2</span></span></span></span></span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>X</mi><mo>=</mo><mi>F</mi><mi>r</mi><mi>a</mi><mi>n</mi><mi>k</mi><mi>l</mi><mi>i</mi><mi>n</mi><mo stretchy="false">(</mo><mi>f</mi><mn>1</mn><mo separator="true">,</mo><mi>f</mi><mn>2</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">X=Franklin(f1,f2)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0785em;">X</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">F</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord mathnormal" style="margin-right:0.0315em;">ank</span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">in</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mord">2</span><span class="mclose">)</span></span></span></span></span> Dimana <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi></mrow><annotation encoding="application/x-tex">X</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0785em;">X</span></span></span></span> merupakan secret key (opr1 dan opr2).
+Setelah mendapatkan nilai opr1 dan opr2 kita bisa mendapatkan nilai p dan q dengan persamaan berikut:</p>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>o</mi><mi>p</mi><mi>r</mi><mn>1</mn><mo>=</mo><msup><mi>p</mi><mrow><mo>−</mo><mn>5</mn></mrow></msup><mtext> </mtext><mo stretchy="false">(</mo><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>q</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">opr1=p^{-5}{\space}(mod{\space}q)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8389em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">o</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord">1</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">−</span><span class="mord mtight">5</span></span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mopen">(</span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mclose">)</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>o</mi><mi>p</mi><mi>r</mi><mn>2</mn><mo>=</mo><msup><mi>p</mi><mn>7</mn></msup><mtext> </mtext><mo>−</mo><msup><mi>q</mi><mi>e</mi></msup><mtext> </mtext><mo stretchy="false">(</mo><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>n</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">opr2=p^7{\space}-q^e{\space}(mod{\space}n)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8389em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">o</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord">2</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">7</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7144em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">e</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mopen">(</span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">n</span><span class="mclose">)</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>o</mi><mi>p</mi><mi>r</mi><msup><mn>1</mn><mn>7</mn></msup><mtext> </mtext><mi mathvariant="normal">.</mi><mtext> </mtext><mi>o</mi><mi>p</mi><mi>r</mi><msup><mn>2</mn><mn>5</mn></msup><mo>=</mo><msup><mi>p</mi><mrow><mo>−</mo><mn>35</mn></mrow></msup><mtext> </mtext><mi mathvariant="normal">.</mi><mtext> </mtext><msup><mi>p</mi><mn>35</mn></msup><mtext> </mtext><mo>−</mo><mtext> </mtext><msup><mi>q</mi><mi>k</mi></msup><mtext> </mtext><mo stretchy="false">(</mo><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>q</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">opr1^7{\space}.{\space}opr2^5=p^{-35}{\space}.{\space}p^{35}{\space}-{\space}q^k{\space}(mod{\space}q)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">o</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord"><span class="mord">1</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">7</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord">.</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">o</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">5</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">−</span><span class="mord mtight">35</span></span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord">.</span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">35</span></span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.1491em;vertical-align:-0.25em;"></span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8991em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mopen">(</span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mclose">)</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>o</mi><mi>p</mi><mi>r</mi><msup><mn>1</mn><mn>7</mn></msup><mtext> </mtext><mi mathvariant="normal">.</mi><mtext> </mtext><mi>o</mi><mi>p</mi><mi>r</mi><msup><mn>2</mn><mn>5</mn></msup><mo>=</mo><mn>1</mn><mtext> </mtext><mo stretchy="false">(</mo><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>q</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">opr1^7{\space}.{\space}opr2^5=1{\space}(mod{\space}q)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">o</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord"><span class="mord">1</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">7</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord">.</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">o</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">5</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">1</span><span class="mord"><span class="mspace"> </span></span><span class="mopen">(</span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mclose">)</span></span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>q</mi><mo>=</mo><mi>G</mi><mi>C</mi><mi>D</mi><mo stretchy="false">(</mo><mi>o</mi><mi>p</mi><mi>r</mi><msup><mn>1</mn><mn>7</mn></msup><mtext> </mtext><mi mathvariant="normal">.</mi><mtext> </mtext><mi>o</mi><mi>p</mi><mi>r</mi><msup><mn>2</mn><mn>5</mn></msup><mtext> </mtext><mo>−</mo><mtext> </mtext><mn>1</mn><mo separator="true">,</mo><mtext> </mtext><mi>n</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">q=GCD(opr1^7{\space}.{\space}opr2^5{\space}-{\space}1,{\space}n)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">GC</span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span><span class="mopen">(</span><span class="mord mathnormal">o</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord"><span class="mord">1</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">7</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord">.</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">o</span><span class="mord mathnormal">p</span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">5</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mspace"> </span></span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">n</span><span class="mclose">)</span></span></span></span></span>
+<p>Kemudian setelah mendapatkan nilai <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> tentunya bisa mendapatkan Kode untuk mendapatkan flag.&#39;&gt;&lt;&#39;</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment"># solver.py</span>
+<span class="hljs-keyword">from</span> sage.<span class="hljs-built_in">all</span> <span class="hljs-keyword">import</span> PolynomialRing, Zmod, ceil, floor
+<span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> randcrack <span class="hljs-keyword">import</span> RandCrack
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> math
+<span class="hljs-keyword">import</span> gmpy2
+
+io = remote(<span class="hljs-string">&quot;103.145.226.209&quot;</span>,<span class="hljs-string">&quot;1928&quot;</span>)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">parsInt</span>(<span class="hljs-params">x</span>):
+    reds = []
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">4</span>):
+        pd = <span class="hljs-number">128</span>*<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>,i)
+        temp = ((x&gt;&gt;pd)%(<span class="hljs-number">2</span>**<span class="hljs-number">33</span>))
+        reds.append(temp)
+    <span class="hljs-keyword">return</span> reds
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">shoot</span>():
+    io.recvuntil(<span class="hljs-string">b&#x27;&gt;&gt; &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;1&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&#x27;wadidaw = &#x27;</span>)
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">int</span>(io.recvline().decode().strip(),<span class="hljs-number">16</span>)
+
+io.recvuntil(<span class="hljs-string">b&#x27;kan e = &#x27;</span>)
+io.sendline(<span class="hljs-string">b&#x27;17&#x27;</span>)
+
+rc = RandCrack()
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">624</span>//<span class="hljs-number">4</span>):
+    <span class="hljs-keyword">if</span>(i%<span class="hljs-number">25</span>==<span class="hljs-number">0</span>): <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Train&quot;</span>,i,<span class="hljs-string">&quot;data&quot;</span>)
+    hasil = shoot()
+    <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> parsInt(hasil):
+        rc.submit(j)
+    
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">wow</span>():
+    wow = [rc.predict_getrandbits(<span class="hljs-number">32</span>) &lt;&lt; (<span class="hljs-number">128</span>*<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>,i)) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>)]
+    wadidaw = <span class="hljs-number">0</span>
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> wow:
+        wadidaw |= i
+    <span class="hljs-keyword">return</span> wadidaw
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">gcd</span>(<span class="hljs-params">a, b</span>): 
+    <span class="hljs-keyword">while</span> b:
+        a, b = b, a % b
+    <span class="hljs-keyword">return</span> a.monic()
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">franklinreiter</span>(<span class="hljs-params">C1, C2, e, N, b, c</span>):
+    X = PolynomialRing(Zmod(N),names=<span class="hljs-string">&quot;X&quot;</span>).gen()
+    g1 = (X + b)**e - C1
+    g2 = (X + c)**e - C2
+    result = -gcd(g1, g2).coefficients()[<span class="hljs-number">0</span>]
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">int</span>(<span class="hljs-built_in">hex</span>(<span class="hljs-built_in">int</span>(result))[<span class="hljs-number">2</span>:].replace(<span class="hljs-string">&quot;L&quot;</span>,<span class="hljs-string">&quot;&quot;</span>),<span class="hljs-number">16</span>)
+
+hasil = shoot()
+<span class="hljs-built_in">print</span>(<span class="hljs-built_in">hex</span>(hasil))
+<span class="hljs-built_in">print</span>(<span class="hljs-built_in">hex</span>(wow()))
+
+dats = []
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">2</span>):
+    io.recvuntil(<span class="hljs-string">b&#x27;&gt;&gt; &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;2&#x27;</span>)
+    c = <span class="hljs-built_in">int</span>(io.recvline().decode().strip().split(<span class="hljs-string">&#x27;= &#x27;</span>)[<span class="hljs-number">1</span>])
+    n = <span class="hljs-built_in">int</span>(io.recvline().decode().strip().split(<span class="hljs-string">&#x27;= &#x27;</span>)[<span class="hljs-number">1</span>])
+    e = <span class="hljs-built_in">int</span>(io.recvline().decode().strip().split(<span class="hljs-string">&#x27;= &#x27;</span>)[<span class="hljs-number">1</span>])
+    dats.append([n,e,c, wow()])
+
+hasil = long_to_bytes(franklinreiter(dats[<span class="hljs-number">0</span>][<span class="hljs-number">2</span>], dats[<span class="hljs-number">1</span>][<span class="hljs-number">2</span>], <span class="hljs-number">17</span>, dats[<span class="hljs-number">0</span>][<span class="hljs-number">0</span>], dats[<span class="hljs-number">0</span>][<span class="hljs-number">3</span>], dats[<span class="hljs-number">1</span>][<span class="hljs-number">3</span>]))
+opr = hasil.split(<span class="hljs-string">b&#x27;bebek&#x27;</span>)
+opr1 = bytes_to_long(opr[<span class="hljs-number">0</span>])
+opr2 = bytes_to_long(opr[<span class="hljs-number">1</span>])
+io.recvuntil(<span class="hljs-string">b&#x27;&gt;&gt; &#x27;</span>)
+io.sendline(<span class="hljs-string">b&#x27;3&#x27;</span>)
+io.recvuntil(<span class="hljs-string">b&#x27;opr1 = &#x27;</span>)
+io.sendline(<span class="hljs-built_in">str</span>(opr1).encode())
+io.recvuntil(<span class="hljs-string">b&#x27;opr2 = &#x27;</span>)
+io.sendline(<span class="hljs-built_in">str</span>(opr2).encode())
+
+io.recvuntil(<span class="hljs-string">b&#x27;berikut\n&#x27;</span>)
+n = <span class="hljs-built_in">int</span>(io.recvline().decode().strip().split(<span class="hljs-string">&#x27;= &#x27;</span>)[<span class="hljs-number">1</span>])
+e = <span class="hljs-built_in">int</span>(io.recvline().decode().strip().split(<span class="hljs-string">&#x27;= &#x27;</span>)[<span class="hljs-number">1</span>])
+c = <span class="hljs-built_in">int</span>(io.recvline().decode().strip().split(<span class="hljs-string">&#x27;= &#x27;</span>)[<span class="hljs-number">1</span>])
+
+mayp = math.gcd(n, opr1**<span class="hljs-number">7</span>*opr2**<span class="hljs-number">5</span>-<span class="hljs-number">1</span>)
+mayq = n//mayp
+phi = (mayp-<span class="hljs-number">1</span>)*(mayq-<span class="hljs-number">1</span>)
+d = <span class="hljs-built_in">pow</span>(<span class="hljs-number">65537</span>, -<span class="hljs-number">1</span>, phi)
+cc = <span class="hljs-number">1</span>
+d1 = <span class="hljs-built_in">pow</span>(<span class="hljs-number">3</span>, -<span class="hljs-number">1</span>, phi)
+cc = <span class="hljs-built_in">pow</span>(c, d1, n)
+r1 = inverse(<span class="hljs-built_in">pow</span>(inverse(opr1,n),<span class="hljs-number">2</span>,n), n)
+r2 = inverse(<span class="hljs-built_in">pow</span>(inverse(opr2, n),<span class="hljs-number">3</span>,n), n)
+kate = (r1*r2*cc)%n
+ccc = <span class="hljs-built_in">pow</span>(kate, d, n)
+r1 = inverse(opr1, n)
+r2 = inverse(opr2, n)
+m = (ccc*r1*r2)%n
+kode = long_to_bytes(m)
+io.recvuntil(<span class="hljs-string">b&#x27;Kode = &#x27;</span>)
+io.sendline(kode)
+flag = io.recvline()
+<span class="hljs-built_in">print</span>(flag)</code></pre></figure>
+<p><img src="https://hackmd.io/_uploads/SyH__VdEa.jpg" alt="ss" loading="lazy" decoding="async" /></p>
+<blockquote>
+<p>NCW23{Double_RSA_Very_Different_Concept}</p>
+</blockquote>
+
+        </article>
+      </div>
+    </main>
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <span>© 2026 Muhammad Faturrohman</span>
+        <span class="footer-mono">&lt;/&gt; add some code to this world</span>
+      </div>
+    </footer>
+  </body>
+</html>
