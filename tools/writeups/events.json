@@ -54,5 +54,20 @@
       "diffie-hellman",
       "rsa"
     ]
+  },
+  {
+    "slug": "acs-2023",
+    "hackmd": "H1Q2nJCN6",
+    "event": "ASEAN Cyber Shield 2023",
+    "title": "ASEAN Cyber Shield 2023 Quals & Finals",
+    "date": "2023-11-25",
+    "summary": "Both rounds: RSA with close exponents, fast Fibonacci by matrix power, homomorphic RSA, curve recovery in ecRSA, plus a finals reverse and web challenge.",
+    "tags": [
+      "crypto",
+      "rsa",
+      "ecc",
+      "rev",
+      "web"
+    ]
   }
 ]
