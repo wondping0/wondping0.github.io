@@ -2,6 +2,27 @@
   const root = document.documentElement;
   root.classList.add("js");
 
+  // Inline disclosure keeps navigation available on small screens and without JS.
+  const menu = document.querySelector(".nav-toggle");
+  const nav = document.querySelector("#primary-nav");
+  if (menu && nav) {
+    const setMenu = (open) => {
+      menu.setAttribute("aria-expanded", String(open));
+      nav.classList.toggle("is-open", open);
+    };
+    menu.addEventListener("click", () => setMenu(menu.getAttribute("aria-expanded") !== "true"));
+    nav.addEventListener("click", (event) => {
+      if (event.target.closest("a")) setMenu(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && menu.getAttribute("aria-expanded") === "true") {
+        setMenu(false);
+        menu.focus();
+      }
+    });
+    window.matchMedia("(max-width: 1040px)").addEventListener("change", () => setMenu(false));
+  }
+
   const year = document.getElementById("year");
   if (year) year.textContent = String(new Date().getFullYear());
 

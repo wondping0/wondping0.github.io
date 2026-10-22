@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="only dark" />
     <meta name="theme-color" content="#050b18" />
     <title>TCP1P CTF 2023 — wondping0 writeup</title>
     <meta name="description" content="RSA leaks via gcd, meet-in-the-middle on double AES, Mersenne Twister prediction, LFSR mask recovery, a CBC padding oracle and small-e RSA behind an ECC captcha." />
@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/writeups/writeups.css" />
+    <script src="/app.js" defer></script>
     <script src="/writeups/writeups.js" defer></script>
   </head>
   <body>
@@ -31,7 +32,8 @@
           <img src="/assets/avatar.webp" width="40" height="40" alt="" />
           <span>wondping0<span class="brand-dot">_</span></span>
         </a>
-        <nav class="nav" aria-label="Main navigation">
+        <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false">Menu</button>
+        <nav class="nav" id="primary-nav" aria-label="Main navigation">
           <a href="/#projects">Projects</a>
           <a href="/#research">Research</a>
           <a href="/writeups/" aria-current="page">Writeups</a>
