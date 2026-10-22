@@ -1,5 +1,12 @@
 [
   {
+    "slug": "acs-2023",
+    "title": "ASEAN Cyber Shield 2023 Quals & Finals",
+    "event": "ASEAN Cyber Shield 2023",
+    "date": "2023-11-25",
+    "challenges": 8
+  },
+  {
     "slug": "ncw-2023",
     "title": "National Cyber Week 2023 Quals",
     "event": "National Cyber Week 2023",
