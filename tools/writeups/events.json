@@ -11,5 +11,19 @@
       "rsa",
       "aes"
     ]
+  },
+  {
+    "slug": "compfest-15",
+    "hackmd": "H1KMHdFJT",
+    "event": "COMPFEST 15 · 2023",
+    "title": "COMPFEST 15 Quals",
+    "date": "2023-09-22",
+    "summary": "Recovering an RSA modulus with gcd then CRT, image encryption in a multiplicative group, a Merkle–Hellman knapsack broken with LLL and an ECDSA verifier bypass.",
+    "tags": [
+      "crypto",
+      "rsa",
+      "lattice",
+      "ecdsa"
+    ]
   }
 ]
