@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050b18" />
+    <title>HackToday 2023 Quals — wondping0 writeup</title>
+    <meta name="description" content="RSA with leaked d^e and φ^e plus Gaussian-integer factoring, an AES CBC/CFB oracle, a byte-by-byte unknown cipher and RSA with a tiny prime." />
+    <meta property="og:title" content="HackToday 2023 Quals — wondping0 writeup" />
+    <meta property="og:description" content="RSA with leaked d^e and φ^e plus Gaussian-integer factoring, an AES CBC/CFB oracle, a byte-by-byte unknown cipher and RSA with a tiny prime." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wondping0.github.io/writeups/hacktoday-2023/" />
+    <meta property="og:image" content="https://wondping0.github.io/assets/avatar.jpg" />
+    <link rel="canonical" href="https://wondping0.github.io/writeups/hacktoday-2023/" />
+    <link rel="icon" href="/assets/favicon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/writeups/writeups.css" />
+    <script src="/writeups/writeups.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="backdrop" aria-hidden="true"></div>
+    <header class="header">
+      <div class="wrap header-inner">
+        <a class="brand" href="/" aria-label="wondping0 home">
+          <img src="/assets/avatar.webp" width="40" height="40" alt="" />
+          <span>wondping0<span class="brand-dot">_</span></span>
+        </a>
+        <nav class="nav" aria-label="Main navigation">
+          <a href="/#projects">Projects</a>
+          <a href="/#research">Research</a>
+          <a href="/writeups/" aria-current="page">Writeups</a>
+          <a href="/#contact">Contact</a>
+        </nav>
+        <a class="header-source" href="https://hackmd.io/@wondPing">HackMD <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="main" class="wrap writeup">
+      <div class="writeup-head">
+        <a class="back" href="/writeups/"><span aria-hidden="true">←</span> All writeups</a>
+        <p class="kicker">HACKTODAY 2023 · IPB <span class="sep">/</span> 26 Aug 2023</p>
+        <h1>HackToday 2023 Quals</h1>
+        <p class="section-sub">RSA with leaked d^e and φ^e plus Gaussian-integer factoring, an AES CBC/CFB oracle, a byte-by-byte unknown cipher and RSA with a tiny prime.</p>
+        <div class="tags"><span>crypto</span><span>rsa</span><span>aes</span><span>4 challenges</span></div>
+        <a class="project-link" href="https://hackmd.io/@wondPing/rJpbwFPa2">Original on HackMD <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="writeup-grid">
+        <nav class="toc" aria-label="On this page">
+          <p class="toc-title">ON THIS PAGE</p>
+          <ol>
+            <li class="toc-2"><a href="#reverse-rsa">Reverse RSA</a></li>
+            <li class="toc-2"><a href="#aes-enjoyer">AES Enjoyer</a></li>
+            <li class="toc-2"><a href="#unknown-cipher">Unknown Cipher</a></li>
+            <li class="toc-2"><a href="#spam">Spam</a></li>
+          </ol>
+        </nav>
+        <article class="prose">
+<h2 id="reverse-rsa"><a class="anchor" href="#reverse-rsa" aria-hidden="true">#</a>Reverse RSA <strong>[cry]</strong></h2>
+<p>We are given the following script</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> pad
+<span class="hljs-keyword">import</span> random
+<span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">import</span> hashlib
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">generate_prime</span>():
+    <span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+        a,b = random.getrandbits(<span class="hljs-number">512</span>), random.getrandbits(<span class="hljs-number">512</span>)
+        <span class="hljs-keyword">if</span> isPrime(<span class="hljs-built_in">pow</span>(a+b,<span class="hljs-number">2</span>) - <span class="hljs-number">2</span>*a*b):
+            <span class="hljs-keyword">return</span> <span class="hljs-built_in">pow</span>(a+b,<span class="hljs-number">2</span>) - <span class="hljs-number">2</span>*a*b,a,b
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">encrypt</span>(<span class="hljs-params">m: <span class="hljs-built_in">str</span>, a: <span class="hljs-built_in">int</span>, b: <span class="hljs-built_in">int</span></span>):
+    key1 = hashlib.sha256(long_to_bytes(a)).digest()[:<span class="hljs-number">16</span>]
+    key2 = hashlib.sha256(long_to_bytes(b)).digest()[:<span class="hljs-number">16</span>]
+    enc = AES.new((key1+key2), AES.MODE_ECB)
+    <span class="hljs-keyword">return</span> enc.encrypt(pad(m.encode(),<span class="hljs-number">16</span>)).<span class="hljs-built_in">hex</span>()
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">hehe</span>():
+    e = <span class="hljs-number">3</span>
+    m = <span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;flag.txt&quot;</span>, <span class="hljs-string">&quot;r&quot;</span>).read()
+    <span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+        p,a1,b1 = generate_prime()
+        q,a2,b2 = generate_prime()
+        phi = (p-<span class="hljs-number">1</span>)*(q-<span class="hljs-number">1</span>)
+        d = inverse(e,phi)
+        <span class="hljs-keyword">if</span> d &gt; <span class="hljs-number">1</span>:
+            <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">return</span> [encrypt(m[:<span class="hljs-built_in">len</span>(m)//<span class="hljs-number">2</span>],a1,b1), encrypt(m[<span class="hljs-built_in">len</span>(m)//<span class="hljs-number">2</span>:],a2,b2)],p,q,e,phi,d
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>():
+    c = os.urandom(<span class="hljs-number">128</span>)
+    c = bytes_to_long(c)
+    arr,p,q,e,phi,d = hehe()
+    n = p*q
+    c = <span class="hljs-built_in">pow</span>(c,e,n)
+    <span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;output.txt&quot;</span>, <span class="hljs-string">&quot;w&quot;</span>) <span class="hljs-keyword">as</span> f:
+        f.write(<span class="hljs-string">f&quot;<span class="hljs-subst">{arr = }</span>\n&quot;</span>)
+        f.write(<span class="hljs-string">f&quot;<span class="hljs-subst">{n = }</span>\n&quot;</span>)
+        f.write(<span class="hljs-string">f&quot;hint1 = <span class="hljs-subst">{<span class="hljs-built_in">pow</span>(d,e,n)}</span>\n&quot;</span>)
+        f.write(<span class="hljs-string">f&quot;hint2 = <span class="hljs-subst">{<span class="hljs-built_in">pow</span>(phi,e,n)}</span>\n&quot;</span>)
+        f.write(<span class="hljs-string">f&quot;<span class="hljs-subst">{c = }</span>\n&quot;</span>)
+    
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    main()</code></pre></figure>
+<p>We are given some RSA algorithm than we must to recover secret key <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span>. Then the flag is encrypted using AES_ECB with the key is integer factor of Gaussian Number <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span>. Given leak information is: <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>h</mi><mi>i</mi><mi>n</mi><mi>t</mi><mn>1</mn><mo>=</mo><msup><mi>d</mi><mi>e</mi></msup><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>N</mi></mrow><annotation encoding="application/x-tex">hint1= d^e{\space} mod {\space}N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">hin</span><span class="mord mathnormal">t</span><span class="mord">1</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7144em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7144em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">e</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span></span> <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>h</mi><mi>i</mi><mi>n</mi><mi>t</mi><mn>2</mn><mo>=</mo><msup><mi>ϕ</mi><mi>e</mi></msup><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>N</mi></mrow><annotation encoding="application/x-tex">hint2= {\phi}^e{\space} mod {\space}N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">hin</span><span class="mord mathnormal">t</span><span class="mord">2</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.9088em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal">ϕ</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7144em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">e</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span></span> from <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ϕ</mi></mrow><annotation encoding="application/x-tex">\phi</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">ϕ</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span></span></span></span> we have some relation that was: <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>e</mi><mo>∗</mo><mi>d</mi><mo>=</mo><mn>1</mn><mtext> </mtext><mi>m</mi><mi>o</mi><mi>d</mi><mtext> </mtext><mi>ϕ</mi></mrow><annotation encoding="application/x-tex">e*d=1{\space}mod{\space}{\phi}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4653em;"></span><span class="mord mathnormal">e</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∗</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord">1</span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">m</span><span class="mord mathnormal">o</span><span class="mord mathnormal">d</span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord mathnormal">ϕ</span></span></span></span></span></span> <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>e</mi><mo>∗</mo><mi>d</mi><mo>=</mo><mn>1</mn><mtext> </mtext><mo>+</mo><mtext> </mtext><mi>ϕ</mi><mo>∗</mo><mi>k</mi><mo separator="true">,</mo><mn>0</mn><mtext> </mtext><mo lspace="0em" rspace="0em">≤</mo><mtext> </mtext><mi>k</mi><mtext> </mtext><mo lspace="0em" rspace="0em">≤</mo><mtext> </mtext><mn>2</mn></mrow><annotation encoding="application/x-tex">e*d=1{\space}+{\space}{\phi}*k, 0{\space}{\le}{\space}k{\space}{\le}{\space}2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4653em;"></span><span class="mord mathnormal">e</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∗</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">1</span><span class="mord"><span class="mspace"> </span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord mathnormal">ϕ</span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∗</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">0</span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mrel">≤</span></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mrel">≤</span></span><span class="mord"><span class="mspace"> </span></span><span class="mord">2</span></span></span></span></span> Then for <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span></span></span></span> we can get two equation, I choosen <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">k=2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">2</span></span></span></span>
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>f</mi><mo>=</mo><msup><mi>d</mi><mn>3</mn></msup><mtext> </mtext><mo>−</mo><mtext> </mtext><mi>h</mi><mi>i</mi><mi>n</mi><mi>t</mi><msup><mn>1</mn><mn>3</mn></msup></mrow><annotation encoding="application/x-tex">f=d^3{\space}-{\space}hint1^3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.9474em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8641em;"></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">hin</span><span class="mord mathnormal">t</span><span class="mord"><span class="mord">1</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span></span></span></span></span> <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>g</mi><mo>=</mo><mo stretchy="false">(</mo><mn>1</mn><mtext> </mtext><mo>+</mo><mtext> </mtext><mn>3</mn><mi>d</mi><msup><mo stretchy="false">)</mo><mn>3</mn></msup><mtext> </mtext><mo>−</mo><mtext> </mtext><mn>2</mn><mi>h</mi><mi>i</mi><mi>n</mi><mi>t</mi><msup><mn>2</mn><mn>3</mn></msup></mrow><annotation encoding="application/x-tex">g=(1{\space}+{\space}3{d})^3{\space}-{\space}2hint2^3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">1</span><span class="mord"><span class="mspace"> </span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mord"><span class="mspace"> </span></span><span class="mord">3</span><span class="mord"><span class="mord mathnormal">d</span></span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8641em;"></span><span class="mord"><span class="mspace"> </span></span><span class="mord">2</span><span class="mord mathnormal">hin</span><span class="mord mathnormal">t</span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span></span></span></span></span> Then the <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>G</mi><mi>C</mi><mi>D</mi><mo stretchy="false">(</mo><mi>f</mi><mo separator="true">,</mo><mi>g</mi><mo stretchy="false">)</mo><mo>=</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">GCD(f,g) = d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">GC</span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span></span></span></span>. For <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext> </mtext><mi>G</mi><mi>C</mi><mi>D</mi></mrow><annotation encoding="application/x-tex">{\space}GCD</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal" style="margin-right:0.0715em;">GC</span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span></span></span></span> is greatest common divisor on Polynomial Equation.</p>
+<p>After getting <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span></span></span></span> we can calculate <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mi>h</mi><mi>i</mi></mrow><annotation encoding="application/x-tex">phi</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mord mathnormal">hi</span></span></span></span> and also recover <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> using formula:
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>p</mi><mi>h</mi><mi>i</mi><mo>=</mo><mi>p</mi><mi>q</mi><mo>+</mo><mn>1</mn><mo>−</mo><mo stretchy="false">(</mo><mi>p</mi><mo>+</mo><mi>q</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">phi = pq+1-(p+q)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mord mathnormal">hi</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">pq</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">1</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mclose">)</span></span></span></span></span> <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mo stretchy="false">(</mo><mi>p</mi><mo>+</mo><mi>q</mi><msup><mo stretchy="false">)</mo><mn>2</mn></msup><mo>=</mo><msup><mi>p</mi><mn>2</mn></msup><mo>+</mo><msup><mi>q</mi><mn>2</mn></msup><mo>+</mo><mn>2</mn><mi>N</mi></mrow><annotation encoding="application/x-tex">(p+q)^2 = p^2+q^2+2N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">2</span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span></span> <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mo stretchy="false">(</mo><mi>p</mi><mo>−</mo><mi>q</mi><msup><mo stretchy="false">)</mo><mn>2</mn></msup><mo>=</mo><msup><mi>p</mi><mn>2</mn></msup><mo>+</mo><msup><mi>q</mi><mn>2</mn></msup><mo>−</mo><mn>2</mn><mi>N</mi></mrow><annotation encoding="application/x-tex">(p-q)^2 = p^2+q^2-2N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.1141em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1.0585em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord">2</span><span class="mord mathnormal" style="margin-right:0.109em;">N</span></span></span></span></span>
+By finding the <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> we reach the next step that is factorization <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> on Gaussian integer. This happen because <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> is equal to <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>a</mi><mn>2</mn></msup><mo>+</mo><msup><mi>b</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">a^2+b^2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8974em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.8141em;"></span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span> based on <strong>generate_prime</strong> function. You can also look at <a href="https://en.wikipedia.org/wiki/Gaussian_integer">here</a> for basic gaussian integer.</p>
+<p>Then after getting <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi></mrow><annotation encoding="application/x-tex">a</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">a</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi></mrow><annotation encoding="application/x-tex">b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">b</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi></mrow><annotation encoding="application/x-tex">c</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">c</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span></span></span></span> we can getting the flag by decrypt using AES_ECB algorithm. </p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">from</span> sage.<span class="hljs-built_in">all</span> <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> gmpy2
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> hashlib
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> unpad
+
+arr = [<span class="hljs-string">&#x27;157ac614902984894fdeebbfbb071706c567595ec75d8cfa15b4fa78daec262d&#x27;</span>, <span class="hljs-string">&#x27;595c471aa4f4fd674f1e3d2d92451989241fc1e5483943462f22139c40f60d26&#x27;</span>]
+n = <span class="hljs-number">9404723413794096840750486535785285876794535511361576853412894200845911829969003676331972051866542086573004196242231773112663882448836681678590616938532087370724012561834072457630073865001977238949966722341420654913634880863139275477367393205803942845700830842030060644879799392560716190756869979961824845241569993349385435448657207484771713611355411421946908145951836362023313860299870126918469757911219457349691268685976027977384948482194603575249579019596371390753132679691323416176793352309224255021352738424721594142218928582299260654395897260445353676685563521525892292706947334487897374797852951852040590439389</span>
+hint1 = <span class="hljs-number">5593970872387902311836120769053146059030637049105040672773016542948942827846061455999241332211428748455532077139830258533039183282935580889489022458478819394933221299590803205851007751465773973836342968239451534638666681077174814829317144676304459890795587677431848130945816787248862202489625370728665219246850849531465607250163714577387028779607621513638179749977435710283251137169285937214422416793079706536196480336771593027324005441922899749335901149114578231558834425607409354371485716879130690793956769919193617810765575349163856434793328180751525777217810347087656060661898920296778852235014244784438117344389</span>
+hint2 = <span class="hljs-number">5446652598623286373540740185691377562112378054932863691745388627532997381032665137705282537716393921078256974027879043372793432547277387313590701809091955164730657081027679538240032159050178309377831080023703981029646570666202553744157221928143089769909303226677755350033176487206293268111168110249714236854535547619145134751499925916881609808586089112703503905754591039632362196307354542415863425450459964401674662922169555148817289901559388128468293418026085799636986930902643463113147492211964426687699624427520381128316307257870691112821972197023935474933590589743664317514018607706611905278629337485988906164194</span>
+c = <span class="hljs-number">7991692935236697018032616275905284758675867368654810481567580564749308850310725506266215536688476849984230374928184166120978180506053082631431754595409266497275709349357554657688080630449133131297573880508612520979731153956613071579120148934504905905315090298098968595822455136835559865077550164700254933008254821465581291331179132088699155913460035689547373957877694226375395571500546107153216033597413229256701114394855130478488829686504004068335094489957778744880851306446127916910072065064567410839868504156515259923671163421414490363540166073133737149154052626702175043043135891501264734754803452478400915979970</span>
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">GCD</span>(<span class="hljs-params">f, g, n</span>):
+    g = g % f
+    <span class="hljs-keyword">if</span> g == <span class="hljs-number">0</span>:
+        <span class="hljs-keyword">return</span> f
+    t = g.lc()
+    <span class="hljs-keyword">if</span> gcd(t, n) != <span class="hljs-number">1</span>:
+        <span class="hljs-built_in">print</span>(t)
+        exit()
+    tt = inverse_mod(Integer(t), n)
+    g = g * tt
+    <span class="hljs-keyword">return</span> GCD(g, f, n)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">publicAttac</span>(<span class="hljs-params">n, d3, phi3</span>):
+    PR = PolynomialRing(Zmod(n), <span class="hljs-string">&#x27;x&#x27;</span>)
+    x = PR.gen()
+    f = x * x * x - Zmod(n)(hint1)
+    h = (<span class="hljs-number">3</span> * x - <span class="hljs-number">1</span>) ** <span class="hljs-number">3</span> - Zmod(n)(hint2) * <span class="hljs-number">8</span>
+    eq = GCD(f, h, n)
+    d = n-eq[<span class="hljs-number">0</span>]
+    phi = <span class="hljs-built_in">pow</span>(hint2, <span class="hljs-built_in">int</span>(d), n)
+    pplusq = <span class="hljs-built_in">int</span>(n+<span class="hljs-number">1</span>-phi)
+    p2q2 = pplusq**<span class="hljs-number">2</span> - <span class="hljs-number">2</span>*n
+    pminq = gmpy2.iroot(<span class="hljs-built_in">int</span>(p2q2 - <span class="hljs-number">2</span>*n), <span class="hljs-number">2</span>)[<span class="hljs-number">0</span>]
+    p = gcd(<span class="hljs-built_in">int</span>(n), <span class="hljs-built_in">int</span>(pplusq-pminq))
+    q = <span class="hljs-built_in">int</span>(n)//p
+    <span class="hljs-keyword">assert</span> n == p*q
+    <span class="hljs-keyword">return</span> p,q
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">absol</span>(<span class="hljs-params">x</span>):
+    <span class="hljs-keyword">if</span>(x&lt;<span class="hljs-number">0</span>): <span class="hljs-keyword">return</span> <span class="hljs-built_in">int</span>(-x)
+    <span class="hljs-keyword">else</span>: <span class="hljs-keyword">return</span> <span class="hljs-built_in">int</span>(x)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">gaussianFactor</span>(<span class="hljs-params">p</span>):
+    x = var(<span class="hljs-string">&#x27;x&#x27;</span>)
+    K = NumberField(x**<span class="hljs-number">2</span> + <span class="hljs-number">1</span> , names=(<span class="hljs-string">&#x27;I&#x27;</span>,))
+    I = K.gen()
+    fi, fj = K.factor(p)
+    zi = fi[<span class="hljs-number">0</span>].gens_reduced()[<span class="hljs-number">0</span>]
+    <span class="hljs-keyword">return</span> absol(zi[<span class="hljs-number">0</span>]), absol(zi[<span class="hljs-number">1</span>])
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">dec</span>(<span class="hljs-params">m, a: <span class="hljs-built_in">int</span>, b: <span class="hljs-built_in">int</span></span>):
+    key1 = hashlib.sha256(long_to_bytes(a)).digest()[:<span class="hljs-number">16</span>]
+    key2 = hashlib.sha256(long_to_bytes(b)).digest()[:<span class="hljs-number">16</span>]
+    enc = AES.new((key1+key2), AES.MODE_ECB)
+    <span class="hljs-keyword">return</span> enc.decrypt(m)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">tryflag</span>(<span class="hljs-params">x</span>):
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> x:
+        <span class="hljs-keyword">try</span>:
+            flag = unpad(i, <span class="hljs-number">16</span>)
+            <span class="hljs-keyword">return</span> flag
+        <span class="hljs-keyword">except</span>:
+            <span class="hljs-keyword">continue</span>
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    p,q = publicAttac(n, hint1, hint2)
+    a, b = gaussianFactor(p)
+    c, d = gaussianFactor(q)
+    <span class="hljs-keyword">assert</span> a**<span class="hljs-number">2</span> + b**<span class="hljs-number">2</span> == p
+    <span class="hljs-keyword">assert</span> c**<span class="hljs-number">2</span> + d**<span class="hljs-number">2</span> == q
+    cip1 = <span class="hljs-built_in">bytes</span>.fromhex(arr[<span class="hljs-number">0</span>])
+    cip2 = <span class="hljs-built_in">bytes</span>.fromhex(arr[<span class="hljs-number">1</span>])
+
+    may_flag1 = [dec(cip1, a, b), dec(cip1, b, a), <span class="hljs-number">16</span>]
+    may_flag2 = [dec(cip2, c, d), dec(cip2, d, c), <span class="hljs-number">16</span>]
+    flag = tryflag(may_flag1) + tryflag(may_flag2)
+    <span class="hljs-built_in">print</span>(flag)</code></pre></figure>
+<p><img src="https://hackmd.io/_uploads/B1q6TYvah.jpg" alt="screenshot" loading="lazy" decoding="async" /></p>
+<blockquote>
+<p>flag = hacktoday{R3v3rS3_RS4_W1th_S0mE_Alg3brSa_1s_Aw3S0mE!!!}</p>
+</blockquote>
+<h2 id="aes-enjoyer"><a class="anchor" href="#aes-enjoyer" aria-hidden="true">#</a>AES Enjoyer <strong>[cry]</strong></h2>
+<p>We are given the following script</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment">#!/usr/bin/python3</span>
+
+<span class="hljs-keyword">import</span> os
+<span class="hljs-keyword">import</span> sys
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> bytes_to_long
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> pad
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">Unbuffered</span>(<span class="hljs-title class_ inherited__">object</span>):
+  <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, stream</span>):
+    <span class="hljs-variable language_">self</span>.stream = stream
+  <span class="hljs-keyword">def</span> <span class="hljs-title function_">write</span>(<span class="hljs-params">self, data</span>):
+    <span class="hljs-variable language_">self</span>.stream.write(data)
+    <span class="hljs-variable language_">self</span>.stream.flush()
+  <span class="hljs-keyword">def</span> <span class="hljs-title function_">writelines</span>(<span class="hljs-params">self, datas</span>):
+    <span class="hljs-variable language_">self</span>.stream.writelines(datas)
+    <span class="hljs-variable language_">self</span>.stream.flush()
+  <span class="hljs-keyword">def</span> <span class="hljs-title function_">__getattr__</span>(<span class="hljs-params">self, attr</span>):
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">getattr</span>(<span class="hljs-variable language_">self</span>.stream, attr)
+
+sys.stdout = Unbuffered(sys.stdout)
+
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&quot;flag.txt&quot;</span>, <span class="hljs-string">&quot;rb&quot;</span>) <span class="hljs-keyword">as</span> f:
+    flag = f.read()
+    f.close()
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">encrypt</span>(<span class="hljs-params">pt: <span class="hljs-built_in">bytes</span>, iv: <span class="hljs-built_in">bytes</span>, key: <span class="hljs-built_in">bytes</span></span>):
+    aes = AES.new(key, AES.MODE_CFB, iv=iv, segment_size=<span class="hljs-number">128</span>)
+    pt = pt + flag[:<span class="hljs-built_in">len</span>(flag)//<span class="hljs-number">2</span>]
+    pt = pad(pt, <span class="hljs-number">16</span>)
+    ct = aes.encrypt(pt)
+    <span class="hljs-keyword">return</span> iv+ct
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">generate_key</span>():
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">bin</span>(bytes_to_long(os.urandom(<span class="hljs-number">2</span>)))[<span class="hljs-number">5</span>:].zfill(<span class="hljs-number">16</span>)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">gift</span>(<span class="hljs-params">pt : <span class="hljs-built_in">bytes</span></span>):
+    key = generate_key()
+    iv = <span class="hljs-string">b&quot;hektoday&quot;</span>*<span class="hljs-number">2</span>
+    <span class="hljs-keyword">assert</span> <span class="hljs-built_in">len</span>(key) == <span class="hljs-number">16</span> <span class="hljs-keyword">and</span> <span class="hljs-built_in">len</span>(iv) == <span class="hljs-number">16</span>
+    <span class="hljs-built_in">print</span>(key)
+    aes = AES.new(key.encode(), AES.MODE_CBC, iv=iv)
+    <span class="hljs-keyword">return</span> aes.encrypt(pt)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">menu</span>():
+    <span class="hljs-built_in">print</span>(
+<span class="hljs-string">&quot;&quot;&quot;[1] Encrypt
+[2] Flag
+[3] Exit&quot;&quot;&quot;</span>)
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>():
+    key = os.urandom(<span class="hljs-number">16</span>)
+    <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">4</span>):
+        menu()
+        op = <span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;[&gt;] &quot;</span>)
+        <span class="hljs-keyword">if</span> op == <span class="hljs-string">&quot;1&quot;</span>:
+            iv = <span class="hljs-built_in">bytes</span>.fromhex(<span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;[&gt;] IV (hex): &quot;</span>))
+            pt = <span class="hljs-built_in">bytes</span>.fromhex(<span class="hljs-built_in">input</span>(<span class="hljs-string">&quot;[&gt;] Plaintext (hex): &quot;</span>))
+            iv = pad(iv, <span class="hljs-number">16</span>) <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(iv) &lt; <span class="hljs-number">0x10</span> <span class="hljs-keyword">else</span> iv
+            pt = pad(pt, <span class="hljs-number">16</span>)
+            ct = encrypt(pt, iv, key)
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[*] Ciphertext:&quot;</span>, ct.<span class="hljs-built_in">hex</span>())
+        <span class="hljs-keyword">elif</span> op == <span class="hljs-string">&quot;2&quot;</span>:  
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[*] Encrypted Flag:&quot;</span>, gift(gift(flag[<span class="hljs-number">16</span>:])).<span class="hljs-built_in">hex</span>())
+        <span class="hljs-keyword">elif</span> op == <span class="hljs-string">&quot;3&quot;</span>:
+            <span class="hljs-keyword">break</span>
+        <span class="hljs-keyword">else</span>:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[?] Are you drunk?&quot;</span>)
+        <span class="hljs-built_in">print</span>()
+
+    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>
+
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    main()</code></pre></figure>
+<p>The given program is implementation of AES mode CBC and CFB. The flag is divide into 2 part. The first part encrypted <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mi>l</mi><mi>a</mi><mi>g</mi><mo stretchy="false">[</mo><mo>:</mo><mn>16</mn><mo stretchy="false">]</mo></mrow><annotation encoding="application/x-tex">flag[:16]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">a</span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mopen">[</span><span class="mrel">:</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">16</span><span class="mclose">]</span></span></span></span> is append into our input and encrypted with AES_CFB. The formula is: <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>c</mi><mi>i</mi><mi>p</mi><mi>h</mi><mi>e</mi><mi>r</mi><mo>=</mo><mi>e</mi><mi>n</mi><mi>c</mi><mi>r</mi><mi>y</mi><mi>p</mi><mi>t</mi><mo stretchy="false">(</mo><mi>p</mi><mi>a</mi><mi>d</mi><mo stretchy="false">(</mo><mi>p</mi><mi>a</mi><mi>d</mi><mo stretchy="false">(</mo><mi>i</mi><mi>n</mi><mi>p</mi><mi>u</mi><mi>t</mi><mo separator="true">,</mo><mn>16</mn><mo stretchy="false">)</mo><mo>+</mo><mi>f</mi><mi>l</mi><mi>a</mi><msub><mi>g</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo separator="true">,</mo><mn>16</mn><mo stretchy="false">)</mo><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">cipher = encrypt(pad(pad(input,16) + flag_1),16))</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">c</span><span class="mord mathnormal">i</span><span class="mord mathnormal">p</span><span class="mord mathnormal">h</span><span class="mord mathnormal" style="margin-right:0.0278em;">er</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">e</span><span class="mord mathnormal">n</span><span class="mord mathnormal" style="margin-right:0.0278em;">cr</span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="mord mathnormal">pt</span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mord mathnormal">a</span><span class="mord mathnormal">d</span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mord mathnormal">a</span><span class="mord mathnormal">d</span><span class="mopen">(</span><span class="mord mathnormal">in</span><span class="mord mathnormal">p</span><span class="mord mathnormal">u</span><span class="mord mathnormal">t</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">16</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">a</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.0359em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">16</span><span class="mclose">))</span></span></span></span></span>
+Given scheme AES_CFB mode decryption process: 
+<img src="https://hackmd.io/_uploads/rySZ8Eu6h.jpg" alt="screenshot" loading="lazy" decoding="async" />
+From that we have equation: <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>P</mi><mi>i</mi></msub><mo>=</mo><mi>D</mi><mi>e</mi><mi>c</mi><mo stretchy="false">(</mo><msub><mi>C</mi><mi>i</mi></msub><mo stretchy="false">)</mo><mtext> </mtext><mo lspace="0em" rspace="0em">⊕</mo><mtext> </mtext><msub><mi>C</mi><mrow><mi>i</mi><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">P_i=Dec(C_i){\space}{\oplus}{\space}C_{i+1}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:-0.1389em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span><span class="mord mathnormal">ec</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord">⊕</span></span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">i</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span></span></span></span></span> <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mn>0</mn><mtext> </mtext><mo lspace="0em" rspace="0em">≤</mo><mtext> </mtext><mi>i</mi></mrow><annotation encoding="application/x-tex">0\space{\le}{\space}i</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7955em;vertical-align:-0.136em;"></span><span class="mord">0</span><span class="mspace"> </span><span class="mord"><span class="mrel">≤</span></span><span class="mord"><span class="mspace"> </span></span><span class="mord mathnormal">i</span></span></span></span></span> on line 201 source code given before, plaintext is padding firstly. So we can use <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>i</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">i&gt;0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6986em;vertical-align:-0.0391em;"></span><span class="mord mathnormal">i</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&gt;</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span> <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>D</mi><mi>e</mi><mi>c</mi><mo stretchy="false">(</mo><msub><mi>C</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo>=</mo><msub><mi>P</mi><mn>1</mn></msub><mtext> </mtext><mo lspace="0em" rspace="0em">⊕</mo><mtext> </mtext><msub><mi>C</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">Dec(C_1)=P_1{\space}{\oplus}{\space}C_2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span><span class="mord mathnormal">ec</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.1389em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord">⊕</span></span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span> <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>P</mi><mrow><mi>f</mi><mi>l</mi><mi>a</mi><mi>g</mi></mrow></msub><mo>=</mo><mi>D</mi><mi>e</mi><mi>c</mi><mo stretchy="false">(</mo><msub><mi>C</mi><mi>i</mi></msub><mo stretchy="false">)</mo><mtext> </mtext><mo lspace="0em" rspace="0em">⊕</mo><mtext> </mtext><msub><mi>C</mi><mrow><mi>f</mi><mi>l</mi><mi>a</mi><mi>g</mi><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">P_{flag}=Dec(C_i){\space}{\oplus}{\space}C_{flag+1}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.1389em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.1076em;">f</span><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight" style="margin-right:0.0359em;">g</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.0361em;vertical-align:-0.2861em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span><span class="mord mathnormal">ec</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord">⊕</span></span><span class="mord"><span class="mspace"> </span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0715em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.1076em;">f</span><span class="mord mathnormal mtight" style="margin-right:0.0197em;">l</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight" style="margin-right:0.0359em;">g</span><span class="mbin mtight">+</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span></span></span></span></span> We can recover the flag because we can use model Chosen-plaintext attack. The first part of flag is have length 16 bytes so we doesn&#39;t need some configuration on padding because have equal len with one block (on the second block).</p>
+<p>The second part of flag is encrypted with AES_CBC but from the source code, key used in encryption is printed on line 181. So, we can just decrypt from given <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>i</mi><mi>v</mi></mrow><annotation encoding="application/x-tex">iv</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6595em;"></span><span class="mord mathnormal">i</span><span class="mord mathnormal" style="margin-right:0.0359em;">v</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mi>i</mi><mi>p</mi><mi>h</mi><mi>e</mi><mi>r</mi><mi>t</mi><mi>e</mi><mi>x</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">ciphertext</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">c</span><span class="mord mathnormal">i</span><span class="mord mathnormal">p</span><span class="mord mathnormal">h</span><span class="mord mathnormal" style="margin-right:0.0278em;">er</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal">x</span><span class="mord mathnormal">t</span></span></span></span>, and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mi>e</mi><mi>y</mi></mrow><annotation encoding="application/x-tex">key</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span><span class="mord mathnormal" style="margin-right:0.0359em;">ey</span></span></span></span>.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> binascii <span class="hljs-keyword">import</span> unhexlify
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> bytes_to_long, long_to_bytes
+<span class="hljs-keyword">from</span> Crypto.Util.Padding <span class="hljs-keyword">import</span> pad, unpad
+<span class="hljs-keyword">from</span> Crypto.Cipher <span class="hljs-keyword">import</span> AES
+
+io = remote(<span class="hljs-string">&quot;103.181.183.216&quot;</span>,<span class="hljs-string">&quot;18002&quot;</span>)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">decAEs</span>(<span class="hljs-params">key, cipher</span>):
+    iv = <span class="hljs-string">b&quot;hektoday&quot;</span>*<span class="hljs-number">2</span>
+    aes = AES.new(key.encode(), AES.MODE_CBC, iv=iv)
+    <span class="hljs-keyword">return</span> aes.decrypt(cipher)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">flag1</span>():
+    io.recvuntil(<span class="hljs-string">b&#x27;[&gt;] &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;2&#x27;</span>)
+    key1 = io.recvline().decode().strip()
+    key2 = io.recvline().decode().strip()
+    io.recvuntil(<span class="hljs-string">b&#x27;[*] Encrypted Flag: &#x27;</span>)
+    cipher = unhexlify(io.recvline().decode().strip())
+    hasil = decAEs(key1, decAEs(key2, cipher))
+    <span class="hljs-keyword">return</span> hasil
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">stage1</span>(<span class="hljs-params">message, iv</span>):
+    io.recvuntil(<span class="hljs-string">b&#x27;[&gt;] &#x27;</span>)
+    io.sendline(<span class="hljs-string">b&#x27;1&#x27;</span>)
+    io.recvuntil(<span class="hljs-string">b&#x27;IV (hex): &#x27;</span>)
+    io.sendline(iv.<span class="hljs-built_in">hex</span>().encode())
+    io.recvuntil(<span class="hljs-string">b&#x27;Plaintext (hex): &#x27;</span>)
+    io.sendline(message.<span class="hljs-built_in">hex</span>().encode())
+    io.recvuntil(<span class="hljs-string">b&#x27;Ciphertext: &#x27;</span>)
+    cipher = io.recvline().decode().strip()
+    <span class="hljs-keyword">return</span> cipher
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">xxor</span>(<span class="hljs-params">x,y</span>):
+    <span class="hljs-keyword">return</span> long_to_bytes(bytes_to_long(x)^bytes_to_long(y))
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">flag2</span>():
+    iv = <span class="hljs-string">b&#x27;aa&#x27;</span>
+    know1 = pad(<span class="hljs-string">b&#x27;a&#x27;</span>*<span class="hljs-number">15</span>,<span class="hljs-number">16</span>)
+    know2 = <span class="hljs-string">b&#x27;a&#x27;</span>*<span class="hljs-number">16</span>
+    cip1 = unhexlify(stage1(know1+know2, iv))[<span class="hljs-number">32</span>:<span class="hljs-number">48</span>]
+    cip2 = unhexlify(stage1(<span class="hljs-string">b&#x27;a&#x27;</span>*<span class="hljs-number">15</span>, iv))[<span class="hljs-number">32</span>:<span class="hljs-number">48</span>]
+    key = xxor(cip1, know2)
+    flag = xxor(key, cip2)
+    <span class="hljs-keyword">return</span> flag
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    flag_1 = flag1()
+    flag_0 = flag2()
+    <span class="hljs-built_in">print</span>(flag_0+flag_1)</code></pre></figure>
+<p><img src="https://hackmd.io/_uploads/ry7c0FP6h.jpg" alt="screenshot" loading="lazy" decoding="async" /></p>
+<blockquote>
+<p>flag = hacktoday{M0r3_A3S_D0esN&#39;t_Me4N_M0r3_S3cuR3!!_I_Th1nK_p4dp4dp4d}</p>
+</blockquote>
+<h2 id="unknown-cipher"><a class="anchor" href="#unknown-cipher" aria-hidden="true">#</a>Unknown Cipher <strong>[cry]</strong></h2>
+<p>We are given some Socat Connection Encryption Scheme
+<img src="https://hackmd.io/_uploads/B17sAFPp2.jpg" alt="screenshot" loading="lazy" decoding="async" />
+From those program we just have ciphertext only for cryptanalysis. Then i try to input some text like &quot;aa&quot;, &quot;aaa&quot;, &quot;aaa...&quot; and something interest happened. The ciphertext have some characteristics:</p>
+<ol>
+<li>one letter on input is encrypted into 5 letter in ciphertext</li>
+<li>every letter will same ciphertext per letter in one round</li>
+<li>ciphertext formula is <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mi>i</mi><mi>p</mi><mo>=</mo><mi>e</mi><mi>n</mi><mi>c</mi><mi>r</mi><mi>y</mi><mi>p</mi><mi>t</mi><mo stretchy="false">(</mo><mi>i</mi><mi>n</mi><mi>p</mi><mi>u</mi><mi>t</mi><mo>+</mo><mi>f</mi><mi>l</mi><mi>a</mi><mi>g</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">cip = encrypt(input + flag)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.854em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">c</span><span class="mord mathnormal">i</span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">e</span><span class="mord mathnormal">n</span><span class="mord mathnormal" style="margin-right:0.0278em;">cr</span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span><span class="mord mathnormal">pt</span><span class="mopen">(</span><span class="mord mathnormal">in</span><span class="mord mathnormal">p</span><span class="mord mathnormal">u</span><span class="mord mathnormal">t</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mord mathnormal" style="margin-right:0.0197em;">l</span><span class="mord mathnormal">a</span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mclose">)</span></span></span></span></li>
+</ol>
+<p>From the three of characteristics above i can make dictionary of all possible letter input then by send all possible letter on input and match with each ciphertext.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">import</span> string
+
+
+list_string = string.ascii_letters + string.digits + <span class="hljs-string">&quot;}{_!#@&quot;</span>
+
+io = remote(<span class="hljs-string">&quot;103.181.183.216&quot;</span>,<span class="hljs-string">&quot;19000&quot;</span>)
+
+flag = <span class="hljs-string">&quot;&quot;</span>
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">olah</span>(<span class="hljs-params">cipher</span>):
+    cipherflag = cipher[<span class="hljs-number">5</span>*<span class="hljs-built_in">len</span>(list_string):]
+    dictionaries = cipher[:<span class="hljs-number">5</span>*<span class="hljs-built_in">len</span>(list_string)]
+    dcts = {}
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-built_in">len</span>(dictionaries), <span class="hljs-number">5</span>): dcts[dictionaries[i:i+<span class="hljs-number">5</span>]] = list_string[i//<span class="hljs-number">5</span>]
+    flag = <span class="hljs-string">&quot;&quot;</span>
+    cip = [cipherflag[i:i+<span class="hljs-number">5</span>] <span class="hljs-keyword">for</span>  i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-built_in">len</span>(cipherflag), <span class="hljs-number">5</span>)]
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> cip:
+        flag += dcts[i]
+    <span class="hljs-keyword">return</span> flag
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">&quot;__main__&quot;</span>:
+    st = list_string.encode()
+    io.recvuntil(<span class="hljs-string">b&#x27;&gt; &#x27;</span>)
+    io.sendline(st)
+    io.recvuntil(<span class="hljs-string">b&#x27;ciphertext: &#x27;</span>)
+    cipher = io.recvline().decode().strip()
+    flag = olah(cipher)
+    <span class="hljs-built_in">print</span>(flag)
+
+</code></pre></figure>
+<p><img src="https://hackmd.io/_uploads/HJ6cAYPa3.jpg" alt="screenshot" loading="lazy" decoding="async" /></p>
+<blockquote>
+<p>flag = hacktoday{3NCrYpt_S4tU_S4tU_T1dAk_4m4N}
+<em><strong>save and late to send the flag during the competition</strong></em></p>
+</blockquote>
+<h2 id="spam"><a class="anchor" href="#spam" aria-hidden="true">#</a>Spam <strong>[cry]</strong></h2>
+<p>We are given the following script</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-comment">#!/usr/bin/env python3</span>
+
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> bytes_to_long, long_to_bytes, getPrime, inverse, GCD
+<span class="hljs-keyword">from</span> random <span class="hljs-keyword">import</span> sample, randint, shuffle
+
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&#x27;spam.txt&#x27;</span>,<span class="hljs-string">&#x27;r&#x27;</span>) <span class="hljs-keyword">as</span> spam:
+	spam = spam.read().splitlines()
+	jumlah = randint(<span class="hljs-number">100</span>, <span class="hljs-number">200</span>)
+	email = sample(spam, jumlah)
+
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&#x27;password.txt&#x27;</span>,<span class="hljs-string">&#x27;r&#x27;</span>) <span class="hljs-keyword">as</span> password:
+	password = password.read().splitlines()
+	full_password = <span class="hljs-string">&#x27;&#x27;</span>.join(password)
+	email.extend(password)
+	shuffle(email)
+
+<span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(<span class="hljs-string">&#x27;flag.txt&#x27;</span>,<span class="hljs-string">&#x27;r&#x27;</span>) <span class="hljs-keyword">as</span> flag:
+	FLAG = flag.read().strip()
+
+<span class="hljs-keyword">for</span> idx <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(email):
+	indeks = idx[<span class="hljs-number">0</span>]+<span class="hljs-number">1</span>
+	message = idx[<span class="hljs-number">1</span>]
+	<span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+		p = getPrime(<span class="hljs-number">512</span>)
+		q = getPrime(<span class="hljs-number">16</span>)
+		phi = (p-<span class="hljs-number">1</span>)*(q-<span class="hljs-number">1</span>)
+		e = <span class="hljs-number">65537</span>
+		d = inverse(e,phi)
+		<span class="hljs-keyword">if</span> GCD(e,phi) == <span class="hljs-number">1</span> <span class="hljs-keyword">and</span> d != -<span class="hljs-number">1</span>:
+			<span class="hljs-keyword">break</span>
+
+	m = bytes_to_long(message.encode())
+	n = p*q
+	c = <span class="hljs-built_in">pow</span>(m,e,n)
+
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;n<span class="hljs-subst">{indeks}</span> = <span class="hljs-subst">{n}</span>\n&#x27;</span>)
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;c<span class="hljs-subst">{indeks}</span> = <span class="hljs-subst">{c}</span>\n&#x27;</span>)
+
+answer = <span class="hljs-built_in">input</span>(<span class="hljs-string">&#x27;Input Full Password = &#x27;</span>).strip()
+
+<span class="hljs-keyword">if</span> answer == full_password:
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Correct Password!\nHere&#x27;s Your Flag\n<span class="hljs-subst">{FLAG}</span>\n&quot;</span>)
+<span class="hljs-keyword">else</span>:
+	<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;Wrong Password!&#x27;</span>)
+</code></pre></figure>
+<p>We know from those program is reading 2 file txt (password and spam) then shuffle all of them to encrypt with RSA algorithm each line. Then we must to input the correct password. The weakness of  algorithm is the value of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> is to small <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>&lt;</mo><mi>q</mi><mo>&lt;</mo><msup><mn>2</mn><mn>16</mn></msup></mrow><annotation encoding="application/x-tex">1 &lt; q &lt; 2^{16}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6835em;vertical-align:-0.0391em;"></span><span class="mord">1</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&lt;</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7335em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">&lt;</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8141em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">16</span></span></span></span></span></span></span></span></span></span></span></span>. So we can use bruteforce attack to find <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span>. </p>
+<p>After decrypting all plaintext we get some information that was there are differents value of spam and password that was shuffle before. Spam text is contain &quot;happy_birthday&quot; value, but password value don&#39;t. Then we can filter it and get the password by arranging with correct order. Password is &quot;1Nst1Tut_p3Rt4n14N_b0G0R&quot;.</p>
+<figure class="code"><figcaption><span>python</span><button type="button" class="copy" aria-label="Copy code">copy</button></figcaption><pre><code class="hljs language-python"><span class="hljs-keyword">from</span> pwn <span class="hljs-keyword">import</span> *
+<span class="hljs-keyword">from</span> Crypto.Util.number <span class="hljs-keyword">import</span> *
+
+io = remote(<span class="hljs-string">&quot;103.181.183.216&quot;</span>,<span class="hljs-string">&quot;18001&quot;</span>)
+bunchdata = io.recvuntil(<span class="hljs-string">b&#x27;Input Full&#x27;</span>).decode().split(<span class="hljs-string">&quot;\n&quot;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;done getting data&quot;</span>)
+n = []
+c = []
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">att</span>(<span class="hljs-params">c, n</span>):
+    p,q = getfactor(n)
+    phi = (p-<span class="hljs-number">1</span>)*(q-<span class="hljs-number">1</span>)
+    e = <span class="hljs-number">65537</span>
+    d = <span class="hljs-built_in">pow</span>(e, -<span class="hljs-number">1</span>, phi)
+    mes = long_to_bytes(<span class="hljs-built_in">pow</span>(c,d,n))
+    <span class="hljs-keyword">return</span> mes
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">getfactor</span>(<span class="hljs-params">n</span>):
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">2</span>, <span class="hljs-number">2</span>**<span class="hljs-number">16</span>):
+        <span class="hljs-keyword">if</span>(n%i==<span class="hljs-number">0</span>):
+            <span class="hljs-keyword">return</span> i, n//i
+
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> bunchdata:
+    <span class="hljs-keyword">if</span>(<span class="hljs-string">&#x27;c&#x27;</span> <span class="hljs-keyword">in</span> i):
+        num = <span class="hljs-built_in">int</span>(i.split(<span class="hljs-string">&#x27; = &#x27;</span>)[<span class="hljs-number">1</span>])
+        c.append(num)
+    <span class="hljs-keyword">elif</span>(<span class="hljs-string">&quot;n&quot;</span> <span class="hljs-keyword">in</span> i):
+        <span class="hljs-keyword">if</span>(<span class="hljs-string">&quot;Input&quot;</span> <span class="hljs-keyword">in</span> i): <span class="hljs-keyword">break</span>
+        num = <span class="hljs-built_in">int</span>(i.split(<span class="hljs-string">&#x27; = &#x27;</span>)[<span class="hljs-number">1</span>])
+        n.append(num)
+
+plain = []
+<span class="hljs-keyword">for</span> i,j <span class="hljs-keyword">in</span> <span class="hljs-built_in">zip</span>(c,n):
+    plain.append(att(i, j))
+<span class="hljs-built_in">print</span>(plain[:<span class="hljs-number">10</span>])
+passw = []
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> plain:
+    <span class="hljs-keyword">if</span>(<span class="hljs-keyword">not</span> <span class="hljs-string">b&quot;happy_birthday&quot;</span> <span class="hljs-keyword">in</span> i): passw.append(i)
+<span class="hljs-built_in">print</span>(passw)
+io.interactive()</code></pre></figure>
+<p><img src="https://hackmd.io/_uploads/BJlaRFwp2.jpg" alt="screenshot" loading="lazy" decoding="async" /></p>
+<blockquote>
+<p>flag = hacktoday{H4pPy_b1Rthd4Y}</p>
+</blockquote>
+
+        </article>
+      </div>
+    </main>
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <span>© 2026 Muhammad Faturrohman</span>
+        <span class="footer-mono">&lt;/&gt; add some code to this world</span>
+      </div>
+    </footer>
+  </body>
+</html>
