@@ -88,7 +88,7 @@ const head = (title, description, path) => `<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="only dark" />
     <meta name="theme-color" content="#050b18" />
     <title>${esc(title)}</title>
     <meta name="description" content="${esc(description)}" />
@@ -105,6 +105,7 @@ const head = (title, description, path) => `<!doctype html>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/writeups/writeups.css" />
+    <script src="/app.js" defer></script>
     <script src="/writeups/writeups.js" defer></script>
   </head>
   <body>
@@ -116,7 +117,8 @@ const head = (title, description, path) => `<!doctype html>
           <img src="/assets/avatar.webp" width="40" height="40" alt="" />
           <span>wondping0<span class="brand-dot">_</span></span>
         </a>
-        <nav class="nav" aria-label="Main navigation">
+        <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false">Menu</button>
+        <nav class="nav" id="primary-nav" aria-label="Main navigation">
           <a href="/#projects">Projects</a>
           <a href="/#research">Research</a>
           <a href="/writeups/" aria-current="${path.startsWith("writeups") ? "page" : "false"}">Writeups</a>

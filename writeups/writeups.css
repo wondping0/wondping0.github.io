@@ -8,6 +8,7 @@
 }
 .writeups-index h1,
 .writeup h1 {
+  overflow-wrap: anywhere;
   margin: 0;
   font: 700 clamp(36px, 5vw, 64px) / 1.05 var(--display);
   letter-spacing: -1px;
@@ -28,7 +29,7 @@
 }
 .wu-card {
   display: grid;
-  grid-template-columns: 130px 1fr auto;
+  grid-template-columns: 130px minmax(0, 1fr) auto;
   align-items: start;
   gap: 28px;
   padding: 28px;
@@ -146,6 +147,8 @@
   color: var(--muted);
   font-size: 13px;
   line-height: 1.4;
+  min-height: 44px;
+  overflow-wrap: anywhere;
 }
 .toc .toc-3 a {
   padding-left: 26px;
@@ -166,6 +169,7 @@
   font-size: 15px;
   line-height: 1.8;
   color: #c9d7ee;
+  overflow-wrap: anywhere;
 }
 .prose h2,
 .prose h3,
@@ -292,7 +296,7 @@
   font-size: 12px;
 }
 .copy {
-  min-height: 36px;
+  min-height: 44px;
   min-width: 64px;
   padding: 0 12px;
   border: 1px solid var(--line);
@@ -331,7 +335,7 @@
 }
 .hljs-comment,
 .hljs-meta {
-  color: #5d7396;
+  color: #8ba3c7;
   font-style: italic;
 }
 .hljs-title,
@@ -371,6 +375,16 @@
   }
   .prose h3 {
     font-size: 21px;
+  }
+  .anchor {
+    position: static;
+    display: inline-block;
+    margin-right: 6px;
+    opacity: 1;
+    color: var(--muted);
+  }
+  .writeup-grid {
+    gap: 32px;
   }
   .wu-card {
     padding: 20px;
