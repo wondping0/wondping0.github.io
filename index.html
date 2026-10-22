@@ -1,24 +1,244 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wondping0 | Home</title>
-    <link href="tailwind.css" rel="stylesheet">
-</head>
-<body class="bg-gradient-to-r from-darkblue to-indigo-900 text-white min-h-screen flex items-center justify-center">
-    <div class="w-full max-w-4xl p-6 bg-opacity-80 bg-black rounded-lg">
-        <nav class="flex justify-between items-center mb-12">
-            <h1 class="text-3xl font-bold">Wondping0</h1>
-            <ul class="flex space-x-6">
-                <li><a href="about.html" class="hover:text-indigo-400">About Me</a></li>
-                <li><a href="achievement.html" class="hover:text-indigo-400">Achievement</a></li>
-                <li><a href="writeup.html" class="hover:text-indigo-400">Writeup</a></li>
-            </ul>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050b18" />
+    <title>wondping0 — Breaking ciphers. Shipping tools.</title>
+    <meta
+      name="description"
+      content="Muhammad Faturrohman (wondping0): cryptanalysis, CTF challenge authoring and developer tools — wondev, q-agent and Aya's Playground."
+    />
+    <meta property="og:title" content="wondping0 — Breaking ciphers. Shipping tools." />
+    <meta
+      property="og:description"
+      content="Cryptanalysis, CTF challenge authoring and developer tools by Muhammad Faturrohman."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://wondping0.github.io/" />
+    <meta property="og:image" content="https://wondping0.github.io/assets/avatar.jpg" />
+    <link rel="canonical" href="https://wondping0.github.io/" />
+    <link rel="icon" href="assets/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="backdrop" aria-hidden="true"><div class="scanline"></div></div>
+
+    <header class="header">
+      <div class="wrap header-inner">
+        <a class="brand" href="#top" aria-label="wondping0 home">
+          <img src="assets/avatar.webp" width="40" height="40" alt="" />
+          <span>wondping0<span class="brand-dot">_</span></span>
+        </a>
+        <nav class="nav" aria-label="Main navigation">
+          <a href="#projects">Projects</a>
+          <a href="#research">Research</a>
+          <a href="#ctf">CTF</a>
+          <a href="#contact">Contact</a>
         </nav>
-        <h2 class="text-5xl font-extrabold text-center">Welcome to My Personal Website</h2>
-        <p class="text-center mt-6">Explore my achievements, read my writeups, and learn more about me!</p>
-    </div>
-    <div class="absolute top-0 left-0 w-full h-full bg-cyber-pattern animate-cyber-motion"></div>
-</body>
+        <a class="header-source" href="https://github.com/wondping0">GitHub <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero wrap" id="top" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>MUHAMMAD FATURROHMAN <span class="sep">/</span> INDONESIA</p>
+          <h1 id="hero-title">Breaking ciphers.<br /><span>Shipping tools.</span></h1>
+          <p class="typed" aria-live="off">
+            <span class="prompt" aria-hidden="true">›</span>
+            <span class="typed-text" data-roles='["cryptography & cryptanalysis","CTF player & challenge author","developer tools in Go / TypeScript","AI agent tooling"]'>cryptography &amp; cryptanalysis</span><span class="caret" aria-hidden="true"></span>
+          </p>
+          <p class="hero-description">
+            I study how ciphers fail, write CTF challenges that teach it, and build the tools I wish existed —
+            from agent-config compilers to fleet agents with post-quantum crypto.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#projects">See what I build <span aria-hidden="true">→</span></a>
+            <a class="button button-ghost" href="https://github.com/wondping0">github.com/wondping0 <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-hidden="true">
+          <div class="orbit">
+            <div class="glow"></div>
+            <div class="ring ring-dots"></div>
+            <div class="ring ring-dash"></div>
+            <div class="glyphs">
+              <span style="--i: 0">+</span><span style="--i: 1">−</span><span style="--i: 2">×</span><span style="--i: 3">÷</span>
+              <span style="--i: 4">=</span><span style="--i: 5">∑</span><span style="--i: 6">⊕</span><span style="--i: 7">π</span>
+            </div>
+            <img class="avatar" src="assets/avatar.webp" width="400" height="400" alt="" />
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap terminal-wrap reveal" aria-label="About me">
+        <div class="terminal">
+          <div class="terminal-top">
+            <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span>wondping0@github: ~</span>
+            <span></span>
+          </div>
+          <div class="terminal-body">
+            <p><span class="ps">$</span> whoami</p>
+            <p class="out">Muhammad Faturrohman — security researcher &amp; tool builder</p>
+            <p><span class="ps">$</span> cat focus.txt</p>
+            <p class="out">cryptanalysis · CTF authoring · agent tooling · fleet security</p>
+            <p><span class="ps">$</span> echo $MOTTO</p>
+            <p class="out">Add some code to this world ... although a little bit.</p>
+            <p><span class="ps">$</span> <span class="caret caret-inline" aria-hidden="true"></span></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section wrap" id="projects" aria-labelledby="projects-title">
+        <div class="section-head reveal">
+          <p class="kicker">01 / PROJECTS</p>
+          <h2 id="projects-title">Things I ship</h2>
+          <p class="section-sub">Each one has its own site. Open it, poke around.</p>
+        </div>
+        <div class="projects">
+          <article class="project reveal" style="--accent: #9a93ff">
+            <div class="project-top">
+              <span class="project-dot" aria-hidden="true"></span>
+              <span class="project-tag">TypeScript · npm</span>
+            </div>
+            <h3>wondev</h3>
+            <p>
+              Write your AI agent knowledge once. Compile it to CLAUDE.md, AGENTS.md, .cursor/rules and more —
+              and fail CI when they drift.
+            </p>
+            <pre class="snippet"><code>npx wondev init</code></pre>
+            <div class="project-links">
+              <a class="project-link" href="https://wondping0.github.io/wondev/">Website <span aria-hidden="true">↗</span></a>
+              <a class="project-link" href="https://github.com/wondping0/wondev">Source <span aria-hidden="true">↗</span></a>
+            </div>
+          </article>
+
+          <article class="project reveal" style="--accent: #b8f779">
+            <div class="project-top">
+              <span class="project-dot" aria-hidden="true"></span>
+              <span class="project-tag">Go · gRPC · PQC</span>
+            </div>
+            <h3>q-agent</h3>
+            <p>
+              Native fleet agents and a container control plane with signed commands, local role ceilings and
+              encrypted shells. The host has the final say.
+            </p>
+            <pre class="snippet"><code>qctl exec agent-ID --role operator -- id</code></pre>
+            <div class="project-links">
+              <a class="project-link" href="q-agent/">Website <span aria-hidden="true">↗</span></a>
+            </div>
+          </article>
+
+          <article class="project reveal" style="--accent: #7ccb7f">
+            <div class="project-top">
+              <span class="project-dot" aria-hidden="true"></span>
+              <span class="project-tag">TypeScript · CTF</span>
+            </div>
+            <h3>Aya's Playground</h3>
+            <p>
+              A cryptography CTF challenge marketplace with sandboxed solver verification and licensed,
+              CTFd-compatible challenge bundles.
+            </p>
+            <pre class="snippet"><code>docker compose up -d &amp;&amp; npm run dev</code></pre>
+            <div class="project-links">
+              <a class="project-link" href="ayas-playground/">Website <span aria-hidden="true">↗</span></a>
+              <a class="project-link" href="https://github.com/wondping0/ayas-playground">Source <span aria-hidden="true">↗</span></a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section wrap" id="research" aria-labelledby="research-title">
+        <div class="section-head reveal">
+          <p class="kicker">02 / RESEARCH</p>
+          <h2 id="research-title">Cryptanalysis notebooks</h2>
+          <p class="section-sub">Attacks implemented end to end, mostly in Python and Sage.</p>
+        </div>
+        <ul class="list">
+          <li class="reveal">
+            <a href="https://github.com/wondping0/LCG_Cracker">
+              <span class="list-name">LCG_Cracker</span>
+              <span class="list-desc">Recover a linear congruential generator's parameters from as few as six outputs.</span>
+              <span class="list-meta">Python <span aria-hidden="true">↗</span></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a href="https://github.com/wondping0/AlgebrikAttackOnSmallPresent">
+              <span class="list-name">AlgebraicAttackOnSmallPresent</span>
+              <span class="list-desc">Builds the polynomial system for an algebraic attack on SMALL-PRESENT.</span>
+              <span class="list-meta">Python <span aria-hidden="true">↗</span></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a href="https://github.com/wondping0/LinearAlgebraOnSimeck">
+              <span class="list-name">LinearAlgebraOnSimeck</span>
+              <span class="list-desc">Linear-algebra attack on reduced-round SIMON and Simeck (1–5 rounds), in Python and Sage.</span>
+              <span class="list-meta">Python <span aria-hidden="true">↗</span></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a href="https://github.com/wondping0/ownSAECipher">
+              <span class="list-name">ownSAECipher</span>
+              <span class="list-desc">A shift-and-XOR toy cipher with a unit-test plan — built to see how a homemade scheme holds up.</span>
+              <span class="list-meta">Python <span aria-hidden="true">↗</span></span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section wrap" id="ctf" aria-labelledby="ctf-title">
+        <div class="section-head reveal">
+          <p class="kicker">03 / CTF</p>
+          <h2 id="ctf-title">Playing &amp; authoring</h2>
+          <p class="section-sub">I write challenges as often as I solve them.</p>
+        </div>
+        <div class="ctf-grid">
+          <div class="ctf-card reveal">
+            <p class="ctf-label">AUTHOR</p>
+            <h3>WreckIT 4.0 &amp; 5.0</h3>
+            <p>Challenges for the WreckIT 4.0 finals and the WreckIT 5.0 eliminations.</p>
+          </div>
+          <div class="ctf-card reveal">
+            <p class="ctf-label">PLAYGROUND</p>
+            <h3><a href="https://github.com/wondping0/ctf-prompt-injection">ctf-prompt-injection ↗</a></h3>
+            <p>A CTF-style web app for practising prompt-injection attacks against LLM apps.</p>
+          </div>
+          <div class="ctf-card reveal">
+            <p class="ctf-label">ARCHIVE</p>
+            <h3><a href="https://github.com/wondping0/Hacktoday2024_Quals">HackToday 2024 ↗</a></h3>
+            <p>Crypto solves from the HackToday 2024 quals: knapsack RSA, Curve Enjoyer, Split and Splice and more.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section wrap contact reveal" id="contact" aria-labelledby="contact-title">
+        <p class="kicker">04 / CONTACT</p>
+        <h2 id="contact-title">Got a cipher that needs breaking?</h2>
+        <p class="section-sub">Open an issue on any repo, or find me on GitHub.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://github.com/wondping0">Say hi on GitHub <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <span>© <span id="year">2026</span> Muhammad Faturrohman</span>
+        <span class="footer-mono">&lt;/&gt; add some code to this world</span>
+      </div>
+    </footer>
+  </body>
 </html>
