@@ -40,5 +40,19 @@
       "prng",
       "lfsr"
     ]
+  },
+  {
+    "slug": "ncw-2023",
+    "hackmd": "S1lsfbEOVp",
+    "event": "National Cyber Week 2023",
+    "title": "National Cyber Week 2023 Quals",
+    "date": "2023-11-20",
+    "summary": "Recovering an AES-CFB8 key, a man-in-the-middle on Diffie–Hellman and a low-exponent attack on a double RSA scheme.",
+    "tags": [
+      "crypto",
+      "aes",
+      "diffie-hellman",
+      "rsa"
+    ]
   }
 ]
